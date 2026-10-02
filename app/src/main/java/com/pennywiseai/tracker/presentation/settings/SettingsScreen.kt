@@ -100,8 +100,8 @@ fun SettingsScreen(
         modifier = modifier,
     ) {
         // Top of Settings on purpose: highest-discoverability slot.
-        SettingsGroup {
-            if (isFdroidBuild) {
+        if (isFdroidBuild) {
+            SettingsGroup {
                 SettingsNavItem(
                     icon = Icons.Default.Favorite,
                     iconBgColor = yellow_light,
@@ -109,23 +109,6 @@ fun SettingsScreen(
                     title = stringResource(R.string.support_title),
                     subtitle = stringResource(R.string.support_subtitle),
                     onClick = { showSupportDialog = true },
-                    position = ListItemPosition.Single,
-                )
-            } else {
-                // Row content adapts to entitlement state — paid users see
-                // "Active" so the row reads as status, free users see "Upgrade"
-                // so it reads as a call-to-action.
-                SettingsNavItem(
-                    icon = Icons.Default.AutoAwesome,
-                    iconBgColor = yellow_light,
-                    iconTint = yellow_dark,
-                    title = if (isProEntitled) stringResource(R.string.settings_pro_title_active) else stringResource(R.string.settings_pro_title_upgrade),
-                    subtitle = if (isProEntitled) {
-                        stringResource(R.string.settings_pro_subtitle_active)
-                    } else {
-                        stringResource(R.string.settings_pro_subtitle_upgrade)
-                    },
-                    onClick = { showUpgradeSheet = true },
                     position = ListItemPosition.Single,
                 )
             }
