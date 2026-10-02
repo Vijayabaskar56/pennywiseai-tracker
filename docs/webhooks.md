@@ -25,9 +25,17 @@ Requests are JSON POSTs using schema version `1.0`. Monetary amounts are decimal
 strings, tagged with currency. A profile exports only its selected currency.
 The envelope contains `schema_version`, `generated_at`, `app`, `profile`,
 `request`, `batch`, and selected `summary`, `transactions`, `budgets`, `accounts`,
-and `subscriptions` sections. Transactions are sent in batches of at most 250.
+and `subscriptions` sections. Each batch contains at most 250 records per
+transaction, budget, account, or subscription section. Requests larger than
+1 MiB are split further by their encoded UTF-8 size. If one record or the
+envelope metadata alone exceeds 1 MiB, delivery fails locally without
+retrying or advancing cursors.
 All batches in a run share `batch.id`, with one-based `batch.index` and
-`batch.count`. Snapshot sections appear only in the first batch.
+`batch.count`. Summary appears only in the first batch. For selected budget,
+account, and subscription snapshots, accumulate each section across every
+batch of a run and replace the stored snapshot only once all batches arrive.
+Deduplicate repeated batches by their ID and index. An empty selected section
+across a completed run clears that snapshot; an incomplete run must not replace it.
 
 For transaction upserts, key records by `profile.id` and transaction `id`.
 For deletes, remove that record. A deletion contains only its stable ID,
@@ -51,7 +59,12 @@ are recorded without immediate retry. Automatic sync will try again at the
 next interval. Cursors advance only after every batch succeeds. Tests never
 advance cursors.
 
-302/303 redirects use GET, supporting Google Apps Script response URLs.
+Generic 302/303 redirects are failures and never acknowledge delivery through
+a bodyless GET. Google Apps Script is the narrow exception: an HTTPS deployed
+`script.google.com/macros/s/<deployment>/exec` POST may redirect to the HTTPS
+`script.googleusercontent.com/macros/echo` response URL via GET. This follows
+the [documented Content Service response flow](https://developers.google.com/apps-script/guides/content#redirects).
+Login redirects and further GET redirects cannot acknowledge delivery.
 301/307/308 preserve the POST body only within the same origin. Custom headers
 are stripped from cross-origin redirects. HTTPS cannot redirect to HTTP, and
 redirect chains are limited to five hops. Delivery error messages do not
@@ -69,13 +82,14 @@ include URLs, response bodies, or header values.
   timestamps. Changing the endpoint, currency, or range resets incremental
   cursors so the new configuration can receive its own initial export.
 - Summary income and expense respect analytics exclusions and the credit-card
-  expense preference. Expense category amounts use transaction splits.
+  expense preference. Loan-linked transactions are excluded from totals.
+  Expense category amounts use transaction splits.
   Transfers and investments are excluded from the expense summary.
 - Budgets use current active budget windows and PennyWise's existing spending
   calculation, including currency, category, split, and refund rules.
 - Accounts and subscriptions are current snapshots, independent of the
   transaction range. Receivers should replace their selected snapshot sections
-  even when those sections contain an empty list.
+  after a complete run, even when those sections contain no records.
 
 Webhook profiles and header credentials are stored in the app's local database
 and are not included in PennyWise's JSON backups. Recreate them after a restore.

@@ -5,6 +5,7 @@ import com.pennywiseai.tracker.data.database.dao.TransactionSplitDao
 import com.pennywiseai.tracker.data.database.entity.*
 import com.pennywiseai.tracker.data.preferences.UserPreferencesRepository
 import com.pennywiseai.tracker.data.repository.*
+import com.pennywiseai.tracker.utils.countsInTotals
 import kotlinx.coroutines.flow.first
 import java.math.BigDecimal
 import java.time.LocalDate
@@ -60,13 +61,21 @@ class WebhookPayloadBuilder @Inject constructor(
         val budgetPayloads = if (WebhookDataType.BUDGETS in types) budgetPayloads(profile.currency, now.toLocalDate()) else emptyList()
         val accountPayloads = if (WebhookDataType.ACCOUNTS in types) accountPayloads(profile.currency) else emptyList()
         val subscriptionPayloads = if (WebhookDataType.SUBSCRIPTIONS in types) subscriptionPayloads(profile.currency) else emptyList()
-        val batches = rows.chunked(250).ifEmpty { listOf(emptyList()) }
+        val transactionsByBatch = rows.chunked(250)
+        val budgetsByBatch = budgetPayloads.chunked(250)
+        val accountsByBatch = accountPayloads.chunked(250)
+        val subscriptionsByBatch = subscriptionPayloads.chunked(250)
+        val batchCount = maxOf(1, transactionsByBatch.size, budgetsByBatch.size, accountsByBatch.size, subscriptionsByBatch.size)
         val batchId = UUID.randomUUID().toString()
         // A date-range export must not advance the updated-at cursor used by incremental exports.
         val updates = if (profile.rangePreset == WebhookRangePreset.SINCE_LAST_SUCCESS) {
             types.map { WebhookCursorUpdate(it, now, range.end) }
         } else emptyList()
-        return batches.mapIndexed { index, batch ->
+        val batches = (0 until batchCount).map { index ->
+            val batch = transactionsByBatch.getOrNull(index).orEmpty()
+            val budgetBatch = budgetsByBatch.getOrNull(index).orEmpty()
+            val accountBatch = accountsByBatch.getOrNull(index).orEmpty()
+            val subscriptionBatch = subscriptionsByBatch.getOrNull(index).orEmpty()
             WebhookBatchPayload(
                 envelope = WebhookEnvelope(
                     generatedAt = now.toString(),
@@ -74,24 +83,56 @@ class WebhookPayloadBuilder @Inject constructor(
                     profile = WebhookProfileInfo(profile.id, profile.name),
                     request = WebhookRequestInfo(range.preset.name.lowercase(), range.start.toString(), range.end.toString(),
                         profile.currency, types.map { it.name.lowercase() }),
-                    batch = WebhookBatchInfo(batchId, index + 1, batches.size),
+                    batch = WebhookBatchInfo(batchId, index + 1, batchCount),
                     summary = if (index == 0) summary else null,
                     transactions = batch,
-                    budgets = if (index == 0) budgetPayloads else emptyList(),
-                    accounts = if (index == 0) accountPayloads else emptyList(),
-                    subscriptions = if (index == 0) subscriptionPayloads else emptyList()
+                    budgets = budgetBatch,
+                    accounts = accountBatch,
+                    subscriptions = subscriptionBatch
                 ),
                 cursorUpdates = updates,
-                itemCount = batch.size + if (index == 0) {
-                    budgetPayloads.size + accountPayloads.size + subscriptionPayloads.size + if (summary != null) 1 else 0
-                } else 0
+                itemCount = batch.size + budgetBatch.size + accountBatch.size + subscriptionBatch.size +
+                    if (index == 0 && summary != null) 1 else 0
             )
         }
+        val sized = batches.flatMap { splitBySize(it.envelope) }
+        return sized.mapIndexed { index, envelope ->
+            val numbered = envelope.copy(batch = envelope.batch.copy(index = index + 1, count = sized.size))
+            WebhookBatchPayload(numbered, updates, itemCount(numbered))
+        }
+    }
+
+    private fun itemCount(envelope: WebhookEnvelope): Int =
+        envelope.transactions.size + envelope.budgets.size + envelope.accounts.size +
+            envelope.subscriptions.size + if (envelope.summary != null) 1 else 0
+
+    private fun splitBySize(envelope: WebhookEnvelope): List<WebhookEnvelope> {
+        // Reserve the largest possible numbering before splitting so final numbering cannot exceed the limit.
+        val reserved = envelope.copy(batch = envelope.batch.copy(index = Int.MAX_VALUE, count = Int.MAX_VALUE))
+        if (WebhookPayloadEncoding.encode(reserved).size <= WebhookPayloadEncoding.MAX_BYTES || itemCount(envelope) <= 1) {
+            return listOf(envelope)
+        }
+        var remaining = itemCount(envelope) / 2
+        val leftSummary = if (envelope.summary != null && remaining > 0) envelope.summary else null
+        if (leftSummary != null) remaining--
+        fun <T> partition(rows: List<T>): Pair<List<T>, List<T>> {
+            val count = minOf(remaining, rows.size)
+            remaining -= count
+            return rows.take(count) to rows.drop(count)
+        }
+        val (leftTransactions, rightTransactions) = partition(envelope.transactions)
+        val (leftBudgets, rightBudgets) = partition(envelope.budgets)
+        val (leftAccounts, rightAccounts) = partition(envelope.accounts)
+        val (leftSubscriptions, rightSubscriptions) = partition(envelope.subscriptions)
+        val left = envelope.copy(summary = leftSummary, transactions = leftTransactions, budgets = leftBudgets,
+            accounts = leftAccounts, subscriptions = leftSubscriptions)
+        val right = envelope.copy(summary = if (leftSummary == null) envelope.summary else null,
+            transactions = rightTransactions, budgets = rightBudgets, accounts = rightAccounts, subscriptions = rightSubscriptions)
+        return splitBySize(left) + splitBySize(right)
     }
 
     private suspend fun summary(range: WebhookDateRange, currency: String): WebhookSummaryPayload {
         val rows = splits.getTransactionsWithSplitsFiltered(range.start, range.end, currency).first()
-            .filterNot { it.transaction.excludedFromAnalytics }
         return webhookSummary(rows, currency, preferences.countCreditCardAsExpense.first())
     }
 
@@ -113,7 +154,7 @@ class WebhookPayloadBuilder @Inject constructor(
         accounts.getAllLatestBalances().first().filter { it.currency.equals(currency, true) }.map {
             WebhookAccountPayload("account_${it.bankName}_${it.accountLast4}", it.bankName, it.accountLast4,
                 it.balance.asPlainStringSafe(), it.currency, it.creditLimit?.asPlainStringSafe(), it.isCreditCard,
-                it.accountType.equals("CASH", true), it.timestamp.toString())
+                it.accountLast4 == AccountBalanceEntity.WALLET_ACCOUNT_MARKER, it.timestamp.toString())
         }
 
     private suspend fun subscriptionPayloads(currency: String): List<WebhookSubscriptionPayload> =
@@ -180,7 +221,7 @@ internal fun webhookTransactionPayload(transaction: TransactionEntity, currency:
         transaction.dateTime.toString(), transaction.updatedAt.toString(), transaction.bankName, transaction.accountNumber?.takeLast(4))
 
 internal fun webhookSummary(rows: List<TransactionWithSplits>, currency: String, countCredit: Boolean): WebhookSummaryPayload {
-    val selected = rows.filter { it.transaction.currency == currency && !it.transaction.isDeleted && !it.transaction.excludedFromAnalytics }
+    val selected = rows.filter { it.transaction.currency == currency && !it.transaction.isDeleted && it.transaction.countsInTotals() }
     val income = selected.filter { it.transaction.transactionType == TransactionType.INCOME }.sumOf { it.transaction.amount }
     val expenses = selected.filter { it.transaction.transactionType == TransactionType.EXPENSE ||
         (countCredit && it.transaction.transactionType == TransactionType.CREDIT) }

@@ -1,6 +1,7 @@
 # Webhook port status
 
-The webhook implementation is on `feat/webhook-sync`. It uses Cashiro as a
+The webhook implementation is on `feat/webhook-sync`, with the upstream contribution
+on `feat/webhook-sync-upstream`. It uses Cashiro as a
 reference, with PennyWise's current budget and transaction semantics.
 
 See [webhooks.md](webhooks.md) for setup, payloads, scheduling, receiver
@@ -25,16 +26,17 @@ idempotency, and limitations.
 - Bounded retries, cancellation propagation, request timeouts, safe redirect
   handling, credential-free error messages, and explicit schema/default JSON fields.
 - HTTPS for remote endpoints; loopback HTTP for local tests.
+- Count and UTF-8 byte limits split large batches before delivery without dropping records.
 - Validation errors beside Save and independent editor/list/history scroll state.
 
 ## Verification
 
-`./init.sh app` with JDK 21 and `:app:assembleDebug` passed. There are 37 passing webhook unit tests.
+`./init.sh` with JDK 21 and `:app:assembleDebug` passed. The follow-up `./init.sh app` gate passed with 45 webhook unit tests.
 Set `JAVA_HOME` to JDK 21 when the shell default uses an older JDK.
 
-Eight instrumentation tests passed on the `Slim_Pixel` emulator, covering
+Nine instrumentation tests passed on the `Slim_Pixel` emulator, covering
 62→64 and 63→64 migration/data preservation, profile-edit history preservation and delete
-cascades, incremental queries, transaction/profile currency removals, stale-config cursor protection, and Android
+cascades, incremental queries, transaction/profile currency removals, stale-config cursor protection, concurrent profile-toggle preservation, and Android
 client delivery of synthetic JSON/custom headers to a loopback receiver.
 Earlier migration/query tests also passed on the connected physical device.
 
