@@ -1,0 +1,29 @@
+// PennyWise shared expenses (docs/shared-expenses.md). Stores Shared groups as readable rows in D1;
+// logs no request bodies, amounts or names.
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "pennywise-shared-expenses",
+	"main": "src/index.ts",
+	"compatibility_date": "2026-11-01",
+	// The public https:// address the Worker is reached at, used to build invite links.
+	// Set it to your workers.dev or custom-domain address before deploying (see README.md).
+	"vars": { "BASE_URL": "http://localhost:8790" },
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "pennywise-shared-expenses",
+			// Replace with the id printed by `npx wrangler d1 create pennywise-shared-expenses`.
+			"database_id": "00000000-0000-0000-0000-000000000000",
+			"migrations_dir": "migrations"
+		}
+	],
+	// Recurring expenses come due once a day, just after midnight UTC.
+	"triggers": { "crons": ["5 0 * * *"] },
+	// namespace_id must be unique within your Cloudflare account; change them if they clash.
+	"ratelimits": [
+		{ "name": "REGISTER_LIMIT", "namespace_id": "840201", "simple": { "limit": 5, "period": 60 } },
+		{ "name": "INVITE_LIMIT", "namespace_id": "840202", "simple": { "limit": 10, "period": 60 } },
+		{ "name": "API_LIMIT", "namespace_id": "840203", "simple": { "limit": 300, "period": 60 } }
+	],
+	"observability": { "enabled": true, "logs": { "invocation_logs": false } }
+}

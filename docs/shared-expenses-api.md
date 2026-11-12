@@ -256,3 +256,43 @@ revision above `since`, deleted rows included.
   the last revision fully included and `hasMore` is true.
 - A caller whose seat was removed or taken over gets `403 forbidden`; the app
   then drops its copy of the group.
+
+## Details settled while building the server
+
+- **Sync cursor:** use the answer's top-level `rev`, never `group.rev`. In a
+  partial page the group's `rev` can be ahead of the answer's.
+- **`changes` paging** counts an expense with its payers and shares as one
+  row and does not count the group. A revision is never split across pages. A
+  missing `since` means 0; a `since` above the group's `rev` returns the
+  current `rev` and nothing else.
+- **Repeated sends:** only a repeated create (`baseVersion` 0, same body) is
+  answered `200` unchanged. A repeated edit answers `409 conflict`; the app
+  treats it as done when `current` equals what it sent.
+- **Deleting and restoring** raise `version`. Restoring a live expense returns
+  it unchanged.
+- **`anchorDay`** may be sent in the recurring `PUT` body. Without it the
+  server uses the day of `nextDate`, or keeps the stored one when `nextDate`
+  did not change. When the cron moves `nextDate` it raises the recurring
+  expense's `version`.
+- **A recurring expense's created expenses** have `createdBy` and `updatedBy`
+  set to the recurring expense's `createdBy`; the activity row's
+  `actorMemberId` is null.
+- **Weights:** `weight` is required for PERCENT and SHARES and must be absent
+  or null for EQUAL and EXACT. It matches `^\d{1,12}(\.\d{1,6})?$`.
+- **Input:** `amount` must be a JSON string. Names, descriptions and
+  categories are trimmed; an empty `category` or `notes` is stored as null.
+  Lengths count Unicode code points.
+- **IDs:** an expense, settlement or recurring ID that exists in another
+  group answers `422 invalid` with `field: "id"`. A `baseVersion` above 0 for
+  an unknown ID answers `404`.
+- **Invites** are not group writes: creating or revoking one changes no `rev`.
+  Accepting one is a write (`MEMBER_JOINED`). Accept always answers `200`.
+  Removing a member revokes the invites for that seat.
+- **A deleted group** answers `404` on every route except `changes` and a
+  repeated `DELETE`; its invites answer `410`.
+- **Membership is checked before the body**, so a non-member gets `403` even
+  with a malformed body. Malformed JSON answers `422` with `field: "body"`.
+- **Other statuses:** `503 busy` when a write lost every retry against
+  concurrent writes (send it again), `500 internal`, `404` for an unknown
+  route. `429` carries no `Retry-After`. Every API answer is
+  `Cache-Control: no-store`.
