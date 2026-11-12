@@ -40,10 +40,15 @@ android {
             // can move to a new phone. Empty = "Move to this device" hidden.
             val licenseMoveUrl = localProperties.getProperty("LICENSE_MOVE_URL", "")
             buildConfigField("String", "LICENSE_MOVE_URL", "\"$licenseMoveUrl\"")
+            // Shared expenses server (shared-expenses/README.md). Empty = no default;
+            // the address can also be set in the Shared tab's settings.
+            val sharedExpensesUrl = localProperties.getProperty("sharedExpensesUrl", "")
+            buildConfigField("String", "SHARED_EXPENSES_URL", "\"$sharedExpensesUrl\"")
         } else {
             // Fallback empty key for CI/CD builds
             buildConfigField("String", "RSA_PUBLIC_KEY", "\"\"")
             buildConfigField("String", "LICENSE_MOVE_URL", "\"\"")
+            buildConfigField("String", "SHARED_EXPENSES_URL", "\"\"")
         }
     }
 

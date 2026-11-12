@@ -100,7 +100,7 @@ data class ExpenseTemplate(
     val shares: List<SharePart>,
 )
 
-/** A recurring expense. MONTHLY and YEARLY keep [anchorDay]; see [RecurringDates]. */
+/** A recurring expense. MONTHLY and YEARLY keep [anchorDay]; see [RecurringDates]. [pending] as on [SharedExpense]. */
 data class SharedRecurring(
     val id: String,
     val groupId: String,
@@ -115,6 +115,7 @@ data class SharedRecurring(
     val deletedAt: Long? = null,
     val version: Int,
     val rev: Long,
+    val pending: Boolean = false,
 )
 
 enum class ActivityType {
