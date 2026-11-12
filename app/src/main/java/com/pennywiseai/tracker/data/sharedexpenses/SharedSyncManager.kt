@@ -34,10 +34,12 @@ class SharedSyncManager internal constructor(
     private val store: SharedLocalStore,
     private val remote: SharedRemote,
     private val session: SharedSession,
+    /** Runs after every sync, finished or not (the budget reconcile). */
+    private val onSynced: suspend () -> Unit = {},
     private val clock: () -> Long,
 ) {
-    @Inject constructor(store: SharedLocalStore, remote: SharedRemote, session: SharedSession) :
-        this(store, remote, session, System::currentTimeMillis)
+    @Inject constructor(store: SharedLocalStore, remote: SharedRemote, session: SharedSession, budget: SharedBudgetLink) :
+        this(store, remote, session, { budget.reconcile() }, System::currentTimeMillis)
 
     private val syncLock = Mutex()
     private val _state = MutableStateFlow(SharedSyncState(lastSuccessAt = session.lastSyncAt))
@@ -45,7 +47,9 @@ class SharedSyncManager internal constructor(
 
     // ── Sync ──
 
-    suspend fun sync(): SharedSyncResult = syncLock.withLock {
+    suspend fun sync(): SharedSyncResult = syncLocked().also { if (it.status != SharedSyncStatus.NOT_IN_USE) onSynced() }
+
+    private suspend fun syncLocked(): SharedSyncResult = syncLock.withLock {
         val c = session.credentials ?: return@withLock SharedSyncResult(SharedSyncStatus.NOT_IN_USE)
         _state.update { it.copy(syncing = true) }
         val activity = mutableListOf<SharedActivity>()

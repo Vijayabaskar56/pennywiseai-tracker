@@ -157,6 +157,45 @@ decode to no shares; older apps ignore them.
   `(transaction_id, loan_id)` index backs this up.
 - `upi_id` fills in a missing one and never replaces one set on this device.
 
+## Shared expenses (personal fork, docs/shared-expenses.md)
+
+A top-level `shared_expenses` object, `FULL` exports only. It is null in older
+backups and when the feature was never used; a null section leaves this
+phone's Shared expenses alone.
+
+```json
+"shared_expenses": {
+  "identity": { "server_address": "https://shared.example.com", "user_id": "…", "secret": "…", "display_name": "Member A" },
+  "links": [
+    { "group_id": "g1", "entity_type": "EXPENSE", "entity_id": "e1", "transaction_hash": "…", "original_state": null, "created_at": 0 },
+    { "group_id": "g1", "entity_type": "SETTLEMENT", "entity_id": "s1", "transaction_hash": "…", "original_state": "excluded_from_analytics=0", "created_at": 0 }
+  ],
+  "dismissed_entries": [ { "group_id": "g1", "expense_id": "e2" } ]
+}
+```
+
+- **What is not in it:** the cached groups (`shared_expenses.db` tables other
+  than `shared_links`/`shared_projections`) and the outbox. After a restore the
+  phone pulls its groups again. The budget entries (`transaction_hash =
+  shared:<expense id>`) are ordinary transactions and travel in
+  `database.transactions`.
+- **`identity`** is the registration from `POST /v1/device`. Whoever holds it
+  acts as that person in their groups. On restore it is taken only when this
+  phone has no registration of its own; an existing one is never replaced.
+- **`links`** name their transaction by `transaction_hash`. On restore each is
+  matched to the restored row by hash; a link whose transaction is absent is
+  skipped, and a transaction or expense/Settlement that already has a link is
+  never linked twice. `original_state` is what unlinking a Settlement link
+  puts back (the row's `excluded_from_analytics` before linking).
+- **`dismissed_entries`** are Shared expenses whose budget entry the user
+  deleted (the deleted row is not exported), so a restore does not bring the
+  entry back.
+- **REPLACE_ALL** first drops this phone's own links and its record of deleted
+  entries, since the restored rows reuse IDs; the backup's replace them.
+- After the database commit the importer calls `SharedExpensesBackupPort.restore`
+  (implemented in `data/sharedexpenses`), which then runs the budget reconcile
+  and asks for a sync. A failure there is logged and never fails the restore.
+
 ## Resilience
 
 Beyond schema tolerance, the importer skips and **counts** any single row that

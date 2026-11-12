@@ -79,6 +79,7 @@ fun EntryProviderScope<NavKey>.sharedExpensesEntries(nav: SharedNavigator, withT
             settlementId = key.settlementId,
             onNavigateBack = { nav.back(key) },
             onNavigate = nav.open,
+            fromTransactionId = key.fromTransactionId,
         )
     }
     entry<SharedActivityFeed> { key ->

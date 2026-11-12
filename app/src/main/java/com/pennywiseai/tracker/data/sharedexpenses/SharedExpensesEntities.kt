@@ -158,7 +158,7 @@ data class SharedOutboxEntity(
     @ColumnInfo(name = "created_at") val createdAt: Long,
 )
 
-/** Which local transaction is linked to which Shared expense or Settlement. Used by the budget-link task. */
+/** Which local transaction is linked to which Shared expense or Settlement (SharedBudgetLink). */
 @Entity(
     tableName = "shared_links",
     indices = [Index(value = ["transaction_id"], unique = true), Index(value = ["entity_type", "entity_id"]), Index("group_id")],
@@ -171,12 +171,21 @@ data class SharedLinkEntity(
     @ColumnInfo(name = "entity_id") val entityId: String,
     @ColumnInfo(name = "transaction_id") val transactionId: Long,
     @ColumnInfo(name = "transaction_hash") val transactionHash: String,
-    /** The transaction's type before linking, so unlinking can put it back. */
+    /**
+     * What unlinking puts back. For a Settlement link, the transaction's
+     * `excluded_from_analytics` before linking ([SharedLink.ORIGINAL_EXCLUDED]
+     * or [SharedLink.ORIGINAL_COUNTED]); null for an expense link, whose
+     * `lent_shares_total` was null before linking.
+     */
     @ColumnInfo(name = "original_type") val originalType: String?,
     @ColumnInfo(name = "created_at") val createdAt: Long,
 )
 
-/** The budget entry this phone made for a Shared expense someone else paid. Used by the budget-link task. */
+/**
+ * The budget entry this phone made for a Shared expense (SharedBudgetLink): the
+ * values it last wrote. A row with no live `shared:<expense id>` transaction is an
+ * entry the user deleted, which stays deleted.
+ */
 @Entity(tableName = "shared_projections", indices = [Index("group_id")])
 data class SharedProjectionEntity(
     @PrimaryKey @ColumnInfo(name = "expense_id") val expenseId: String,

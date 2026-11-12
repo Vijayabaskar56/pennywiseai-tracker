@@ -77,6 +77,31 @@ class SharedIdentity @Inject constructor(
         publish()
     }
 
+    /**
+     * Takes the registration from a backup: [server], [userId] and [secret],
+     * and [name] when no display name is set. Only when this phone has no
+     * registration of its own; an existing one is never replaced. Returns
+     * whether it was taken.
+     */
+    fun restoreRegistration(server: String, userId: String, secret: String, name: String?): Boolean {
+        val normalized = SharedServerAddress.normalize(server) ?: return false
+        if (userId.isBlank() || secret.isBlank()) return false
+        synchronized(this) {
+            if (registration != null) return false
+            prefs.edit {
+                if (normalized == DEFAULT_SERVER) remove(KEY_SERVER) else putString(KEY_SERVER, normalized)
+                putString(KEY_REGISTERED_SERVER, normalized)
+                putString(KEY_USER_ID, userId)
+                putString(KEY_SECRET_SEALED, SharedSecretBox.seal(secret))
+                remove(KEY_LAST_SYNC)
+                if (prefs.getString(KEY_NAME, null) == null && !name.isNullOrBlank()) putString(KEY_NAME, name)
+            }
+            registration = SharedCredentials(normalized, userId, secret)
+        }
+        publish()
+        return true
+    }
+
     /** This phone's credentials, registering with the server first if needed (`POST /v1/device`). */
     suspend fun ensureRegistered(): SharedResult<SharedCredentials> = registerLock.withLock {
         credentials?.let { return@withLock SharedResult.Success(it) }

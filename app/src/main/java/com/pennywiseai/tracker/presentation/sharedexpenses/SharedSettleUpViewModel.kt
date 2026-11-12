@@ -3,7 +3,9 @@ package com.pennywiseai.tracker.presentation.sharedexpenses
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.pennywiseai.tracker.data.sharedexpenses.SharedEntityType
 import com.pennywiseai.tracker.data.sharedexpenses.SharedExpensesRepository
+import com.pennywiseai.tracker.data.sharedexpenses.SharedLinkedTransaction
 import com.pennywiseai.tracker.data.sharedexpenses.SharedResult
 import com.pennywiseai.tracker.data.sharedexpenses.SharedUpiIds
 import com.pennywiseai.tracker.domain.loan.UpiRequest
@@ -20,6 +22,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -121,7 +124,16 @@ data class SharedSettleUpUiState(
     val upiId: String? = null,
     val busy: Boolean = false,
     val saved: Boolean = false,
+    /** Why the picked bank transaction was not linked although the payment was saved. */
+    val savedNotice: UiText? = null,
     val message: UiText? = null,
+    /** My payment already linked to the Settlement being edited. */
+    val linked: SharedLinkedTransaction? = null,
+    /** A payment picked here (or the one this was opened from), linked when it is saved. */
+    val pendingLink: SharedLinkedTransaction? = null,
+    /** I paid or received it and nothing is linked or picked. */
+    val canLink: Boolean = false,
+    val picker: LinkPickerState? = null,
 ) {
     val canSave: Boolean get() = !loading && !busy && error == null
     val toName: String? get() = members.firstOrNull { it.id == form.toId }?.name
@@ -140,13 +152,31 @@ class SharedSettleUpViewModel @Inject constructor(
     private val keyTo: String? = savedStateHandle.get<String>("toMemberId")
     private val keyAmount: String? = savedStateHandle.get<String>("amount")
     private val keyCurrency: String? = savedStateHandle.get<String>("currency")
+    private val fromTransactionId: Long? = savedStateHandle.get<Long>("fromTransactionId")
+
+    private val pendingLink = MutableStateFlow<SharedLinkedTransaction?>(null)
+    private val picker = SharedLinkPicker(viewModelScope, repository)
+
+    private data class LinkUi(val linked: SharedLinkedTransaction?, val pending: SharedLinkedTransaction?, val picker: LinkPickerState?)
+
+    private val linkUi = combine(
+        if (settlementId != null) repository.linkedTransaction(SharedEntityType.SETTLEMENT, settlementId) else flowOf(null),
+        pendingLink,
+        picker.state,
+    ) { l, p, pk -> LinkUi(l, p, pk) }
 
     private val named = MutableStateFlow<Set<String>>(emptySet())
     private val form = MutableStateFlow<SettleForm?>(null)
     private val upi = MutableStateFlow<Map<String, String>>(emptyMap())
     private val status = MutableStateFlow(Status())
 
-    private data class Status(val gone: Boolean = false, val busy: Boolean = false, val saved: Boolean = false, val message: UiText? = null)
+    private data class Status(
+        val gone: Boolean = false,
+        val busy: Boolean = false,
+        val saved: Boolean = false,
+        val savedNotice: UiText? = null,
+        val message: UiText? = null,
+    )
 
     private data class GroupData(val name: String, val me: String?, val members: List<EditorMember>, val debts: Map<String, List<Debt>>)
 
@@ -166,7 +196,7 @@ class SharedSettleUpViewModel @Inject constructor(
     /** The latest debts, for refilling the amount when the pair or currency changes. */
     private val debts: Map<String, List<Debt>> get() = groupState.value?.debts.orEmpty()
 
-    val uiState: StateFlow<SharedSettleUpUiState> = combine(groupState, form, upi, status) { g, f, u, s ->
+    val uiState: StateFlow<SharedSettleUpUiState> = combine(groupState, form, upi, status, linkUi) { g, f, u, s, link ->
         if (s.gone) return@combine SharedSettleUpUiState(loading = false, gone = true)
         if (g == null || f == null) return@combine SharedSettleUpUiState(editing = settlementId != null)
         val upiOk = canPayWithUpi(f, g.me)
@@ -180,7 +210,12 @@ class SharedSettleUpViewModel @Inject constructor(
             upiId = if (upiOk) f.toId?.let(u::get) else null,
             busy = s.busy,
             saved = s.saved,
+            savedNotice = s.savedNotice,
             message = s.message,
+            linked = link.linked,
+            pendingLink = link.pending,
+            canLink = g.me != null && (f.fromId == g.me || f.toId == g.me) && link.linked == null && link.pending == null,
+            picker = link.picker,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SharedSettleUpUiState(editing = settlementId != null))
 
@@ -200,7 +235,15 @@ class SharedSettleUpViewModel @Inject constructor(
             )
         } else {
             val data = groupData.first() ?: return setGone()
-            settleUpDefaults(me, data.members, data.debts, detail.group.defaultCurrency, LocalDate.now(), keyFrom, keyTo, keyAmount, keyCurrency)
+            // Opened from a bank transaction: its amount, currency and date, me as payer of a debit or receiver of a credit.
+            val t = fromTransactionId?.let { repository.linkableTransaction(it) }
+            t?.let { pendingLink.value = it.linked }
+            val from = keyFrom ?: me?.takeIf { t != null && !t.credit }
+            val to = keyTo ?: me?.takeIf { t != null && t.credit }
+            settleUpDefaults(
+                me, data.members, data.debts, detail.group.defaultCurrency, t?.linked?.date ?: LocalDate.now(), from, to,
+                keyAmount ?: t?.linked?.amount?.toPlainString(), keyCurrency ?: t?.linked?.currency,
+            )
         }
         form.value = loaded
         loadUpi(loaded.toId)
@@ -242,6 +285,34 @@ class SharedSettleUpViewModel @Inject constructor(
 
     fun clearMessage() = status.update { it.copy(message = null) }
 
+    // ── Link a bank transaction ──
+
+    fun openLinkPicker() {
+        val f = form.value ?: return
+        val me = groupState.value?.me ?: return
+        picker.open(f.currency, credit = f.toId == me, amount = parseNumberInput(f.amount))
+    }
+
+    fun closeLinkPicker() = picker.close()
+
+    /** Picks [t]; it is linked when the Settlement is saved. */
+    fun pickLink(t: SharedLinkedTransaction) {
+        picker.close()
+        pendingLink.value = t
+    }
+
+    /** Drops the picked payment, or unlinks the one already linked (at once). */
+    fun unlink() {
+        if (pendingLink.value != null) {
+            pendingLink.value = null
+            return
+        }
+        val id = uiState.value.linked?.transactionId ?: return
+        viewModelScope.launch {
+            (repository.unlinkTransaction(id) as? SharedResult.Failure)?.let { r -> status.update { it.copy(message = sharedErrorText(r.error)) } }
+        }
+    }
+
     /** Remembers [id] as the receiver's UPI ID on this phone. False (and nothing saved) when it isn't one. */
     fun saveUpiId(id: String): Boolean {
         val to = form.value?.toId ?: return false
@@ -275,7 +346,17 @@ class SharedSettleUpViewModel @Inject constructor(
             form.update { it?.copy(touched = true) }
             return
         }
-        run { repository.saveSettlement(groupId, settlementId, draft, f.date) }
+        run {
+            repository.saveSettlement(groupId, settlementId, draft, f.date).also { r ->
+                // Linked only when I paid or received it; otherwise the transaction stays as it is.
+                val pick = pendingLink.value
+                if (r is SharedResult.Success && pick != null && uiState.value.linked == null) {
+                    val refused = repository.linkSettlement(pick.transactionId, r.value.id) as? SharedResult.Failure
+                    // The payment is saved; the screen says why its bank transaction was not linked.
+                    status.update { it.copy(savedNotice = refused?.let { f -> sharedErrorText(f.error) }) }
+                }
+            }
+        }
     }
 
     fun delete() {

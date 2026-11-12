@@ -82,6 +82,10 @@ fun SharedExpenseDetailScreen(
         }
     }
 
+    state.picker?.let { p ->
+        SharedLinkPickerDialog(p.currency, p.candidates, onPick = { viewModel.link(it.transactionId) }, onDismiss = viewModel::closeLinkPicker)
+    }
+
     val expense = state.expense
     val edit = { onNavigate(SharedExpenseEditor(groupId, expenseId = expenseId)) }
     PennyWiseScaffold(
@@ -148,6 +152,15 @@ fun SharedExpenseDetailScreen(
 
             SectionHeaderV2(title = stringResource(R.string.shared_detail_split, splitMethodLabel(expense.method)))
             PartList(expense.shares, expense.currency, expense.method)
+
+            SharedLinkSection(
+                linked = state.linked,
+                canLink = state.canLink,
+                hint = stringResource(R.string.shared_link_expense_hint),
+                onLink = viewModel::openLinkPicker,
+                onUnlink = viewModel::unlink,
+                enabled = !state.busy,
+            )
 
             expense.notes?.takeIf { it.isNotBlank() }?.let { notes ->
                 SectionHeaderV2(title = stringResource(R.string.shared_field_notes))

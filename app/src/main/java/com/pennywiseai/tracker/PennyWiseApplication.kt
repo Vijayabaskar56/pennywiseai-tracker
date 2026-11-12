@@ -57,6 +57,9 @@ class PennyWiseApplication : Application(), Configuration.Provider {
     @Inject
     lateinit var goalRepository: com.pennywiseai.tracker.data.repository.GoalRepository
 
+    @Inject
+    lateinit var sharedBudgetLink: com.pennywiseai.tracker.data.sharedexpenses.SharedBudgetLink
+
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var activityReferences = 0
     private var isInForeground = false
@@ -132,6 +135,10 @@ class PennyWiseApplication : Application(), Configuration.Provider {
             )
         }
         applicationScope.launch { webhookSyncScheduler.observeSchedule() }
+
+        // Shared expenses: bring the budget in step with the Shared groups once per start.
+        // With no Shared group, link or entry on this phone it reads three empty tables.
+        applicationScope.launch(Dispatchers.IO) { runCatching { sharedBudgetLink.reconcile() } }
 
         // Goal widgets (#914): one hook for every goal write (screens, Add to goal,
         // restore, a linked transaction edited or deleted) instead of one per call site.

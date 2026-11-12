@@ -1,13 +1,12 @@
 package com.pennywiseai.tracker.data.backup
 
-import com.pennywiseai.tracker.data.preferences.BankAccountMergeStore
-
 import android.content.Context
 import android.os.Build
 import com.pennywiseai.tracker.BuildConfig
 import com.pennywiseai.tracker.data.database.PennyWiseDatabase
 import com.pennywiseai.tracker.data.database.SCHEMA_VERSION
 import com.pennywiseai.tracker.data.database.entity.*
+import com.pennywiseai.tracker.data.preferences.BankAccountMergeStore
 import com.pennywiseai.tracker.data.preferences.IgnoredAccountsStore
 import com.pennywiseai.tracker.data.preferences.TaughtTemplatesStore
 import com.pennywiseai.tracker.data.preferences.UserPreferencesRepository
@@ -32,9 +31,10 @@ class BackupExporter @Inject constructor(
     @ApplicationContext private val context: Context,
     private val database: PennyWiseDatabase,
     private val userPreferencesRepository: UserPreferencesRepository,
-    private val ignoredAccountsStore: IgnoredAccountsStore
+    private val ignoredAccountsStore: IgnoredAccountsStore,
+    private val sharedExpenses: SharedExpensesBackupPort = SharedExpensesBackupPort.NONE
 ) {
-    
+
     /**
      * Export complete app data to a backup file
      */
@@ -60,7 +60,6 @@ class BackupExporter @Inject constructor(
         }
     }
 
-    
     /**
      * Create backup data structure
      */
@@ -93,7 +92,7 @@ class BackupExporter @Inject constructor(
         val goals = database.goalDao().getAllGoals()
         val goalContributions = database.goalDao().getAllContributions()
         val loanShares = database.loanDao().getAllShares()
-        
+
         // Get preferences from repository
         val prefs = userPreferencesRepository.userPreferences.first()
         val systemPrompt = userPreferencesRepository.getSystemPrompt().first()
@@ -112,7 +111,7 @@ class BackupExporter @Inject constructor(
         val lastScanPeriod = userPreferencesRepository.getLastScanPeriod().first()
         val smsScanUseCustomDate = userPreferencesRepository.getSmsScanUseCustomDate()
         val smsScanCustomDate = userPreferencesRepository.getSmsScanCustomDate()
-        
+
         // Calculate statistics
         val dateRange = if (transactions.isNotEmpty()) {
             val sorted = transactions.sortedBy { it.dateTime }
@@ -121,22 +120,22 @@ class BackupExporter @Inject constructor(
                 latest = sorted.last().dateTime.toString()
             )
         } else null
-        
+
         // Apply privacy settings if needed
         val finalTransactions = when (privacy) {
             ExportPrivacy.FULL -> transactions
             ExportPrivacy.MASKED -> transactions.map { it.copy(
                 smsBody = "[REDACTED]",
                 accountNumber = it.accountNumber?.takeLast(4)?.let { "****$it" }
-            )}
+            ) }
             ExportPrivacy.ANONYMOUS -> transactions.map { it.copy(
                 merchantName = "Merchant",
                 description = null,
                 smsBody = "[REDACTED]",
                 accountNumber = "****"
-            )}
+            ) }
         }
-        
+
         // Determine what's actually exported based on privacy mode
         // Rules are included in all modes as they contain no PII
         val exportedRules = rules
@@ -291,10 +290,12 @@ class BackupExporter @Inject constructor(
                     } else emptyList()
                 )
             ),
-            receipts = exportedReceipts
+            receipts = exportedReceipts,
+            // The Shared expenses secret and links (hashes of transactions): FULL only, like the licence key.
+            sharedExpenses = if (privacy == ExportPrivacy.FULL) sharedExpenses.export() else null
         )
     }
-    
+
     /**
      * Create backup file in cache directory
      */
@@ -303,7 +304,7 @@ class BackupExporter @Inject constructor(
         if (!exportDir.exists()) {
             exportDir.mkdirs()
         }
-        
+
         val timestamp = LocalDateTime.now().format(
             DateTimeFormatter.ofPattern("yyyy_MM_dd_HHmmss")
         )

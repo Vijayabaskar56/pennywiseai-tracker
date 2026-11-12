@@ -383,4 +383,38 @@
     <string name="shared_invalid_group_name_long">Group name is too long (60 characters at most).</string>
     <string name="shared_invalid_name_blank">Enter a name.</string>
     <string name="shared_invalid_name_long">Name is too long (40 characters at most).</string>
+
+    <!-- Link to your budget -->
+    <string name="shared_link_refused_gone">That transaction is no longer on this phone.</string>
+    <string name="shared_link_refused_not_debit">Pick a payment you made (a debit).</string>
+    <string name="shared_link_refused_not_credit">Pick a payment you received (a credit).</string>
+    <string name="shared_link_refused_currency">The transaction is in another currency.</string>
+    <string name="shared_link_refused_taken">That transaction is already linked to a Shared group.</string>
+    <string name="shared_link_refused_split">That transaction is a Split bill or a loan. Remove that first.</string>
+    <string name="shared_link_refused_entry">That entry was made from a Shared expense and can\'t be linked.</string>
+    <string name="shared_link_refused_not_payer">Only an expense you paid for can be linked to your payment.</string>
+    <string name="shared_link_refused_not_party">Only a payment you made or received can be linked.</string>
+    <string name="shared_link_refused_already">This already has a linked transaction.</string>
+    <string name="shared_link_section_title">Bank transaction</string>
+    <string name="shared_link_action">Link a bank transaction</string>
+    <string name="shared_link_unlink">Unlink</string>
+    <string name="shared_link_open">Open</string>
+    <string name="shared_link_pending">Will be linked when you save</string>
+    <string name="shared_link_expense_hint">Your payment counts only your share in your budget.</string>
+    <string name="shared_link_settlement_hint">A linked payment is not counted as spending or income.</string>
+    <string name="shared_link_pick_title">Link a bank transaction</string>
+    <string name="shared_link_pick_empty">No recent transactions in %1$s to link.</string>
+    <string name="shared_link_exact">Same amount</string>
+    <string name="shared_link_cancel">Cancel</string>
+    <string name="shared_txn_menu_split_with_group">Split with group</string>
+    <string name="shared_txn_menu_record_settle_up">Record as settle up</string>
+    <string name="shared_txn_pick_group">Choose a Shared group</string>
+    <string name="shared_txn_section_title">Shared group</string>
+    <string name="shared_txn_expense_linked">Linked to a Shared expense in %1$s</string>
+    <string name="shared_txn_my_share">Your share: %1$s</string>
+    <string name="shared_txn_expense_gone">The Shared expense was deleted, so this counts in full.</string>
+    <string name="shared_txn_settlement_linked">Recorded as settling up in %1$s. Not counted as spending or income.</string>
+    <string name="shared_txn_entry">Your share of a Shared expense in %1$s</string>
+    <string name="shared_txn_entry_hint">Its amount, date and currency follow the Shared expense.</string>
+    <string name="shared_txn_group_unknown">a Shared group</string>
 </resources>

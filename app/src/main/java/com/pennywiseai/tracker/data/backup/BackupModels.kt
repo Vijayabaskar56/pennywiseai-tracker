@@ -48,7 +48,14 @@ data class PennyWiseBackup(
     // every app version can read — older apps just ignore this key, and
     // backups written before it existed decode to an empty list.
     @SerialName("receipts")
-    val receipts: List<BackupReceipt> = emptyList()
+    val receipts: List<BackupReceipt> = emptyList(),
+
+    // Shared expenses (docs/shared-expenses.md, "Backup and restore"): this
+    // phone's identity and which transaction belongs to which Shared expense or
+    // Settlement. FULL exports only. Null in older backups and when the feature
+    // was never used, which leaves this phone's Shared expenses alone.
+    @SerialName("shared_expenses")
+    val sharedExpenses: SharedExpensesBackup? = null
 ) {
     companion object {
         /** Current format string written by this app version. */
@@ -437,6 +444,75 @@ data class TaughtTemplatePart(
 
     @SerialName("text")
     val text: String = ""
+)
+
+/**
+ * The Shared expenses section. The cached groups and the outbox are not in it:
+ * after a restore the phone pulls its groups again.
+ */
+@Serializable
+data class SharedExpensesBackup(
+    @SerialName("identity")
+    val identity: SharedIdentityBackup? = null,
+
+    @SerialName("links")
+    val links: List<SharedLinkBackup> = emptyList(),
+
+    // Shared expenses whose budget entry the user deleted, so a restore does
+    // not bring the entry back (the deleted row itself is not exported).
+    @SerialName("dismissed_entries")
+    val dismissedEntries: List<SharedDismissedEntryBackup> = emptyList()
+)
+
+/** The registration from `POST /v1/device`: anyone holding it acts as this person in their groups. */
+@Serializable
+data class SharedIdentityBackup(
+    @SerialName("server_address")
+    val serverAddress: String = "",
+
+    @SerialName("user_id")
+    val userId: String = "",
+
+    @SerialName("secret")
+    val secret: String = "",
+
+    @SerialName("display_name")
+    val displayName: String? = null
+)
+
+/**
+ * One `shared_links` row. The transaction is found again by [transactionHash];
+ * [entityType] is `EXPENSE` or `SETTLEMENT`, and [originalState] is what
+ * unlinking puts back (a Settlement link's `excluded_from_analytics=0|1`).
+ */
+@Serializable
+data class SharedLinkBackup(
+    @SerialName("group_id")
+    val groupId: String = "",
+
+    @SerialName("entity_type")
+    val entityType: String = "",
+
+    @SerialName("entity_id")
+    val entityId: String = "",
+
+    @SerialName("transaction_hash")
+    val transactionHash: String = "",
+
+    @SerialName("original_state")
+    val originalState: String? = null,
+
+    @SerialName("created_at")
+    val createdAt: Long = 0
+)
+
+@Serializable
+data class SharedDismissedEntryBackup(
+    @SerialName("group_id")
+    val groupId: String = "",
+
+    @SerialName("expense_id")
+    val expenseId: String = ""
 )
 
 /**

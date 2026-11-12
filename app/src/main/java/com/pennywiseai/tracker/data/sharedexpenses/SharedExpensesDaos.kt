@@ -18,6 +18,8 @@ interface SharedGroupDao {
 
     @Query("SELECT id FROM shared_groups") suspend fun ids(): List<String>
 
+    @Query("SELECT * FROM shared_groups") suspend fun all(): List<SharedGroupEntity>
+
     @Upsert suspend fun upsert(group: SharedGroupEntity)
 
     @Query("UPDATE shared_groups SET sync_rev = :rev, my_member_id = :myMemberId WHERE id = :id")
@@ -64,6 +66,14 @@ interface SharedExpenseDao {
     @Query("SELECT * FROM shared_expense_payers WHERE expense_id = :id ORDER BY position") suspend fun payers(id: String): List<SharedExpensePayerEntity>
 
     @Query("SELECT * FROM shared_expense_shares WHERE expense_id = :id ORDER BY position") suspend fun shares(id: String): List<SharedExpenseShareEntity>
+
+    @Query("SELECT * FROM shared_expenses WHERE group_id IN (:groupIds)") suspend fun inGroups(groupIds: List<String>): List<SharedExpenseEntity>
+
+    @Query("SELECT p.* FROM shared_expense_payers p JOIN shared_expenses e ON e.id = p.expense_id WHERE e.group_id IN (:groupIds) ORDER BY p.position")
+    suspend fun payersInGroups(groupIds: List<String>): List<SharedExpensePayerEntity>
+
+    @Query("SELECT s.* FROM shared_expense_shares s JOIN shared_expenses e ON e.id = s.expense_id WHERE e.group_id IN (:groupIds) ORDER BY s.position")
+    suspend fun sharesInGroups(groupIds: List<String>): List<SharedExpenseShareEntity>
 
     @Upsert suspend fun upsert(expense: SharedExpenseEntity)
 
@@ -164,7 +174,7 @@ interface SharedOutboxDao {
     @Query("DELETE FROM shared_outbox") suspend fun deleteAll()
 }
 
-/** For the budget-link task: which local transaction belongs to which Shared expense or Settlement. */
+/** Which local transaction belongs to which Shared expense or Settlement (SharedBudgetLink). */
 @Dao
 interface SharedLinkDao {
     @Query("SELECT * FROM shared_links") suspend fun all(): List<SharedLinkEntity>
@@ -178,15 +188,19 @@ interface SharedLinkDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun upsert(link: SharedLinkEntity): Long
 
+    @Query("SELECT COUNT(*) FROM shared_links") suspend fun count(): Int
+
     @Query("DELETE FROM shared_links WHERE id = :id") suspend fun delete(id: Long)
 
     @Query("DELETE FROM shared_links WHERE transaction_id = :transactionId") suspend fun deleteForTransaction(transactionId: Long)
 }
 
-/** For the budget-link task: the entry this phone made for each Shared expense it did not pay in full. */
+/** The entry this phone made for each Shared expense it did not pay in full (SharedBudgetLink). */
 @Dao
 interface SharedProjectionDao {
     @Query("SELECT * FROM shared_projections") suspend fun all(): List<SharedProjectionEntity>
+
+    @Query("SELECT COUNT(*) FROM shared_projections") suspend fun count(): Int
 
     @Query("SELECT * FROM shared_projections WHERE expense_id = :expenseId") suspend fun forExpense(expenseId: String): SharedProjectionEntity?
 

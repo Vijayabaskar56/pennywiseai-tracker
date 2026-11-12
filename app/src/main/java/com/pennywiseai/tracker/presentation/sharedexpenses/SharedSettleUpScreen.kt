@@ -2,6 +2,7 @@ package com.pennywiseai.tracker.presentation.sharedexpenses
 
 import android.content.ActivityNotFoundException
 import android.content.Intent
+import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -78,6 +79,7 @@ fun SharedSettleUpScreen(
     settlementId: String?,
     onNavigateBack: () -> Unit,
     onNavigate: (NavKey) -> Unit,
+    @Suppress("UNUSED_PARAMETER") fromTransactionId: Long? = null,
     viewModel: SharedSettleUpViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -85,7 +87,14 @@ fun SharedSettleUpScreen(
     val context = LocalContext.current
     var dialog by rememberSaveable { mutableStateOf<SettleDialog?>(null) }
 
-    LaunchedEffect(state.saved, state.gone) { if (state.saved || state.gone) onNavigateBack() }
+    val savedNotice = state.savedNotice?.asString()
+    LaunchedEffect(state.saved, state.gone) {
+        if (state.saved || state.gone) {
+            // The payment is saved; say why its bank transaction was not linked.
+            if (savedNotice != null) Toast.makeText(context, savedNotice, Toast.LENGTH_LONG).show()
+            onNavigateBack()
+        }
+    }
     val message = state.message?.asString()
     LaunchedEffect(message) {
         if (message != null) {
@@ -200,6 +209,16 @@ fun SharedSettleUpScreen(
                 )
             }
 
+            SharedLinkSection(
+                linked = state.linked,
+                pending = state.pendingLink,
+                canLink = state.canLink,
+                hint = stringResource(R.string.shared_link_settlement_hint),
+                onLink = viewModel::openLinkPicker,
+                onUnlink = viewModel::unlink,
+                enabled = !state.busy,
+            )
+
             val notesError = shownError?.takeIf { it.formField == FormField.NOTES }
             OutlinedTextField(
                 value = form.notes,
@@ -212,6 +231,10 @@ fun SharedSettleUpScreen(
                 modifier = Modifier.fillMaxWidth().padding(top = Spacing.sm, bottom = Spacing.Layout.scrollBottomPadding),
             )
         }
+    }
+
+    state.picker?.let { p ->
+        SharedLinkPickerDialog(p.currency, p.candidates, onPick = viewModel::pickLink, onDismiss = viewModel::closeLinkPicker)
     }
 
     when (dialog) {

@@ -73,6 +73,9 @@ sealed interface SharedError {
     /** "Keep mine" on a row another member deleted; only "use theirs" (or restoring first) is possible. */
     data object DeletedElsewhere : SharedError
 
+    /** A bank transaction could not be linked to a Shared expense or Settlement; see [SharedLinkRefusal]. */
+    data class LinkRefused(val reason: SharedLinkRefusal) : SharedError
+
     /** The server could not be reached or its answer could not be read. Try again later. */
     data class Network(val message: String?) : SharedError
 

@@ -245,6 +245,8 @@ data class SharedSettleUp(
     val amount: String? = null,
     val currency: String? = null,
     val settlementId: String? = null,
+    /** A bank transaction to prefill from and link when the Settlement is saved. */
+    val fromTransactionId: Long? = null,
 ) : NavKey
 
 /** One group's activity feed, or every group's when [groupId] is null. */

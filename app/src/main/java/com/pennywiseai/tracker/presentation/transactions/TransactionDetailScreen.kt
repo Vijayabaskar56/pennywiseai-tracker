@@ -1,7 +1,47 @@
 package com.pennywiseai.tracker.presentation.transactions
 
 import android.animation.ValueAnimator
+import android.content.Intent
+import android.net.Uri
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.CallSplit
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.FolderOpen
+import androidx.compose.material.icons.outlined.Savings
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation3.runtime.NavKey
+import coil3.compose.AsyncImage
 import com.pennywiseai.tracker.R
+import com.pennywiseai.tracker.data.database.entity.LoanDirection
+import com.pennywiseai.tracker.data.database.entity.LoanEntity
+import com.pennywiseai.tracker.data.database.entity.TransactionEntity
+import com.pennywiseai.tracker.data.database.entity.TransactionType
+import com.pennywiseai.tracker.navigation.SharedExpenseDetail
+import com.pennywiseai.tracker.navigation.SharedExpenseEditor
+import com.pennywiseai.tracker.navigation.SharedSettleUp
 import com.pennywiseai.tracker.presentation.goals.AddToGoalSheet
 import com.pennywiseai.tracker.presentation.goals.TowardGoalsSection
 import com.pennywiseai.tracker.presentation.goals.TransactionGoalsViewModel
@@ -9,50 +49,14 @@ import com.pennywiseai.tracker.presentation.split.SplitBillSheet
 import com.pennywiseai.tracker.presentation.split.SplitBillViewModel
 import com.pennywiseai.tracker.presentation.split.SplitSection
 import com.pennywiseai.tracker.presentation.split.canSplit
-import androidx.compose.ui.res.stringResource
-import android.content.Intent
-import android.net.Uri
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
-import coil3.compose.AsyncImage
-import com.pennywiseai.tracker.ui.effects.overScrollVertical
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.CallSplit
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.outlined.FolderOpen
-import androidx.compose.material.icons.outlined.Savings
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.dp
-import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.compose.LifecycleEventEffect
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.pennywiseai.tracker.data.database.entity.LoanDirection
-import com.pennywiseai.tracker.data.database.entity.LoanEntity
-import com.pennywiseai.tracker.data.database.entity.TransactionEntity
-import com.pennywiseai.tracker.data.database.entity.TransactionType
-import com.pennywiseai.tracker.ui.components.SETTLED_HOLD_MILLIS
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalHapticFeedback
 import com.pennywiseai.tracker.ui.components.CustomTitleTopAppBar
+import com.pennywiseai.tracker.ui.components.SETTLED_HOLD_MILLIS
 import com.pennywiseai.tracker.ui.components.SplitItem
+import com.pennywiseai.tracker.ui.effects.overScrollVertical
+import com.pennywiseai.tracker.ui.theme.Dimensions
+import com.pennywiseai.tracker.ui.theme.Spacing
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
-import com.pennywiseai.tracker.ui.theme.Spacing
-import com.pennywiseai.tracker.ui.theme.Dimensions
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.math.BigDecimal
@@ -66,11 +70,27 @@ fun TransactionDetailScreen(
     onDuplicateTransaction: (Long) -> Unit = {},
     onNavigateToGoal: (Long) -> Unit = {},
     onCreateGoal: () -> Unit = {},
+    /** Opens a Shared expenses screen (Split with group, Record as settle up, Open). */
+    onOpenShared: (NavKey) -> Unit = {},
     viewModel: TransactionDetailViewModel = hiltViewModel(),
     goalsViewModel: TransactionGoalsViewModel = hiltViewModel(),
-    splitViewModel: SplitBillViewModel = hiltViewModel()
+    splitViewModel: SplitBillViewModel = hiltViewModel(),
+    sharedViewModel: TransactionSharedViewModel = hiltViewModel()
 ) {
     val transaction by viewModel.transaction.collectAsStateWithLifecycle()
+    val sharedTie by sharedViewModel.tie.collectAsStateWithLifecycle()
+    val sharedGroups by sharedViewModel.groups.collectAsStateWithLifecycle()
+    // Which Shared action is waiting for a group to be picked (true: settle up).
+    var sharedPickForSettle by remember { mutableStateOf<Boolean?>(null) }
+    fun startShared(settle: Boolean) {
+        val txn = transaction ?: return
+        val only = sharedGroups.singleOrNull()
+        if (only == null) {
+            sharedPickForSettle = settle
+            return
+        }
+        onOpenShared(sharedKey(txn, only.id, settle))
+    }
     val isEditMode by viewModel.isEditMode.collectAsStateWithLifecycle()
     val editableTransaction by viewModel.editableTransaction.collectAsStateWithLifecycle()
     val isSaving by viewModel.isSaving.collectAsStateWithLifecycle()
@@ -116,6 +136,7 @@ fun TransactionDetailScreen(
     LaunchedEffect(transaction) { goalsViewModel.setTransaction(transaction) }
     // Split a bill (#346): reload after a save so lent_shares_total is fresh.
     LaunchedEffect(transaction) { splitViewModel.setTransaction(transaction) }
+    LaunchedEffect(transaction) { sharedViewModel.setTransaction(transaction) }
     LaunchedEffect(Unit) { splitViewModel.changed.collect { viewModel.loadTransaction(transactionId) } }
     fun closeAddToGoal() { showAddToGoal = false; goalsViewModel.closeSheet() }
     // Bumped by each confirmed user action that settles the receipt: Save, Add to goal.
@@ -130,7 +151,7 @@ fun TransactionDetailScreen(
 
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
-    
+
     // Show success snackbar
     val updatedMessage = stringResource(R.string.txn_detail_updated)
     // "Receipt settled": only the user's own Save gets the check + haptic.
@@ -153,7 +174,7 @@ fun TransactionDetailScreen(
             try { delay(SETTLED_HOLD_MILLIS) } finally { settled = false }
         }
     }
-    
+
     // Show error snackbar
     val errorText = errorMessage?.asString()
     LaunchedEffect(errorText) {
@@ -163,20 +184,20 @@ fun TransactionDetailScreen(
             }
         }
     }
-    
+
     // Reload on every resume so external changes — e.g. the linked loan being
     // deleted from the Loan screen — are reflected when returning here (#444).
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
         viewModel.loadTransaction(transactionId)
     }
-    
+
     // Handle delete success
     LaunchedEffect(deleteSuccess) {
         if (deleteSuccess) {
             onNavigateBack()
         }
     }
-    
+
     val context = LocalContext.current
     var showActionsMenu by remember { mutableStateOf(false) }
 
@@ -251,7 +272,8 @@ fun TransactionDetailScreen(
                                         showAddToGoal = true
                                     }
                                 )
-                                if (transaction?.let(::canSplit) == true) {
+                                // A transaction is a local Split bill or tied to a Shared group, never both.
+                                if (transaction?.let(::canSplit) == true && sharedTie == null) {
                                     DropdownMenuItem(
                                         text = {
                                             Text(stringResource(if (transaction?.lentSharesTotal != null) R.string.split_menu_edit else R.string.split_menu_split))
@@ -262,6 +284,26 @@ fun TransactionDetailScreen(
                                         onClick = {
                                             showActionsMenu = false
                                             splitViewModel.openSheet()
+                                        }
+                                    )
+                                }
+                                if (sharedGroups.isNotEmpty() && transaction?.let { canSplitWithGroup(it, sharedTie) } == true) {
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(R.string.shared_txn_menu_split_with_group)) },
+                                        leadingIcon = { Icon(Icons.Default.Groups, contentDescription = null) },
+                                        onClick = {
+                                            showActionsMenu = false
+                                            startShared(settle = false)
+                                        }
+                                    )
+                                }
+                                if (sharedGroups.isNotEmpty() && transaction?.let { canRecordSettleUp(it, sharedTie) } == true) {
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(R.string.shared_txn_menu_record_settle_up)) },
+                                        leadingIcon = { Icon(Icons.Default.Handshake, contentDescription = null) },
+                                        onClick = {
+                                            showActionsMenu = false
+                                            startShared(settle = true)
                                         }
                                     )
                                 }
@@ -356,6 +398,11 @@ fun TransactionDetailScreen(
                 },
                 splitWith = {
                     transaction?.let { SplitSection(splitViewModel, it, onOpenLoan = onNavigateToLoanDetail) }
+                    SharedTieSection(
+                        tie = sharedTie,
+                        onOpen = { onOpenShared(openKey(it)) },
+                        onUnlink = sharedViewModel::unlink,
+                    )
                 },
                 modifier = Modifier.padding(paddingValues)
             )
@@ -363,6 +410,17 @@ fun TransactionDetailScreen(
     }
 
     transaction?.let { SplitBillSheet(splitViewModel, it) }
+
+    sharedPickForSettle?.let { settle ->
+        SharedGroupPickerDialog(
+            groups = sharedGroups,
+            onPick = { group ->
+                sharedPickForSettle = null
+                transaction?.let { onOpenShared(sharedKey(it, group.id, settle)) }
+            },
+            onDismiss = { sharedPickForSettle = null },
+        )
+    }
 
     if (showAddToGoal) {
         transaction?.let { txn ->
@@ -377,13 +435,13 @@ fun TransactionDetailScreen(
             )
         }
     }
-    
+
     // Delete Confirmation Dialog
     if (showDeleteDialog) {
         AlertDialog(
             onDismissRequest = { viewModel.hideDeleteDialog() },
             title = { Text(stringResource(R.string.txn_detail_delete_title)) },
-            text = { 
+            text = {
                 Text(stringResource(R.string.txn_detail_delete_message))
             },
             confirmButton = {
@@ -559,7 +617,6 @@ private fun TransactionDetailContent(
                 splits = splits,
                 showSplitEditor = showSplitEditor
             )
-
         } else {
             TransactionReceipt(
                 transaction = transaction,
@@ -578,4 +635,18 @@ private fun TransactionDetailContent(
             )
         }
     }
+}
+
+/** The Shared screen a transaction opens: the expense form filled from it, or Settle up prefilled and linked on save. */
+private fun sharedKey(txn: com.pennywiseai.tracker.data.database.entity.TransactionEntity, groupId: String, settle: Boolean): NavKey =
+    if (settle) {
+        SharedSettleUp(groupId, amount = txn.amount.toPlainString(), currency = txn.currency, fromTransactionId = txn.id)
+    } else {
+        SharedExpenseEditor(groupId, fromTransactionId = txn.id)
+    }
+
+private fun openKey(tie: com.pennywiseai.tracker.data.sharedexpenses.SharedTransactionTie): NavKey = when (tie) {
+    is com.pennywiseai.tracker.data.sharedexpenses.SharedTransactionTie.Expense -> SharedExpenseDetail(tie.groupId, tie.expenseId)
+    is com.pennywiseai.tracker.data.sharedexpenses.SharedTransactionTie.Entry -> SharedExpenseDetail(tie.groupId, tie.expenseId)
+    is com.pennywiseai.tracker.data.sharedexpenses.SharedTransactionTie.Settlement -> SharedSettleUp(tie.groupId, settlementId = tie.settlementId)
 }

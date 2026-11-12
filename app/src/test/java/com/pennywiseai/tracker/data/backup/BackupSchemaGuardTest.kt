@@ -44,6 +44,10 @@ class BackupSchemaGuardTest {
         serializer<TaughtTemplate>().descriptor,
         serializer<TaughtTemplatePart>().descriptor,
         serializer<BackupReceipt>().descriptor,
+        serializer<SharedExpensesBackup>().descriptor,
+        serializer<SharedIdentityBackup>().descriptor,
+        serializer<SharedLinkBackup>().descriptor,
+        serializer<SharedDismissedEntryBackup>().descriptor,
     )
 
     /**

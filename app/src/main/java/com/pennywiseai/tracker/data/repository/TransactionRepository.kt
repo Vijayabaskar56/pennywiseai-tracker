@@ -1,15 +1,15 @@
 package com.pennywiseai.tracker.data.repository
 
-import com.pennywiseai.tracker.data.database.entity.currentNameFor
 import com.pennywiseai.tracker.data.database.dao.TransactionDao
 import com.pennywiseai.tracker.data.database.dao.TransactionSplitDao
 import com.pennywiseai.tracker.data.database.entity.TransactionEntity
 import com.pennywiseai.tracker.data.database.entity.TransactionSplitEntity
 import com.pennywiseai.tracker.data.database.entity.TransactionType
 import com.pennywiseai.tracker.data.database.entity.TransactionWithSplits
+import com.pennywiseai.tracker.data.database.entity.currentNameFor
+import com.pennywiseai.tracker.data.manager.TransactionDeduplication
 import com.pennywiseai.tracker.data.preferences.BudgetPreferences
 import com.pennywiseai.tracker.data.statement.StatementTransactionEnricher
-import com.pennywiseai.tracker.data.manager.TransactionDeduplication
 import com.pennywiseai.tracker.domain.model.BudgetCycle
 import com.pennywiseai.tracker.utils.forTotals
 import kotlinx.coroutines.flow.Flow
@@ -30,7 +30,8 @@ open class TransactionRepository @Inject constructor(
     private val transactionSplitDao: TransactionSplitDao,
     private val userPreferencesRepository: BudgetPreferences,
     private val categoryDao: com.pennywiseai.tracker.data.database.dao.CategoryDao,
-    private val goalRepository: GoalRepository
+    private val goalRepository: GoalRepository,
+    private val holds: TransactionHolds = TransactionHolds.NONE
 ) {
     suspend fun getWebhookChanges(start: LocalDateTime, end: LocalDateTime, currency: String, profileId: String) =
         transactionDao.getWebhookChanges(start, end, currency, profileId)
@@ -41,18 +42,18 @@ open class TransactionRepository @Inject constructor(
     fun getWebhookTransactions(start: LocalDateTime, end: LocalDateTime, currency: String) =
         transactionDao.getTransactionsFiltered(start, end, currency, null)
 
-    fun getAllTransactions(): Flow<List<TransactionEntity>> = 
+    fun getAllTransactions(): Flow<List<TransactionEntity>> =
         transactionDao.getAllTransactions()
-    
-    open suspend fun getTransactionById(id: Long): TransactionEntity? = 
+
+    open suspend fun getTransactionById(id: Long): TransactionEntity? =
         transactionDao.getTransactionById(id)
-    
+
     fun getTransactionsBetweenDates(
         startDate: LocalDateTime,
         endDate: LocalDateTime
-    ): Flow<List<TransactionEntity>> = 
+    ): Flow<List<TransactionEntity>> =
         transactionDao.getTransactionsBetweenDates(startDate, endDate)
-    
+
     fun getTransactionsBetweenDates(
         startDate: LocalDate,
         endDate: LocalDate
@@ -84,13 +85,13 @@ open class TransactionRepository @Inject constructor(
             currency,
             transactionType
         )
-    
-    fun getTransactionsByType(type: TransactionType): Flow<List<TransactionEntity>> = 
+
+    fun getTransactionsByType(type: TransactionType): Flow<List<TransactionEntity>> =
         transactionDao.getTransactionsByType(type)
-    
-    fun getTransactionsByCategory(category: String): Flow<List<TransactionEntity>> = 
+
+    fun getTransactionsByCategory(category: String): Flow<List<TransactionEntity>> =
         transactionDao.getTransactionsByCategory(category)
-    
+
     fun searchTransactions(query: String): Flow<List<TransactionEntity>> =
         transactionDao.searchTransactions(query)
 
@@ -99,7 +100,7 @@ open class TransactionRepository @Inject constructor(
 
     fun getCurrenciesForPeriod(startDate: LocalDateTime, endDate: LocalDateTime): Flow<List<String>> =
         transactionDao.getCurrenciesForPeriod(startDate, endDate)
-    
+
     fun getAllCategories(): Flow<List<String>> =
         transactionDao.getAllCategories()
 
@@ -112,13 +113,13 @@ open class TransactionRepository @Inject constructor(
 
     fun getAllMerchants(): Flow<List<String>> =
         transactionDao.getAllMerchants()
-    
+
     suspend fun getTotalAmountByTypeAndPeriod(
         type: TransactionType,
         startDate: LocalDateTime,
         endDate: LocalDateTime
     ): Double? = transactionDao.getTotalAmountByTypeAndPeriod(type, startDate, endDate)
-    
+
     suspend fun insertTransaction(transaction: TransactionEntity): Long =
         transactionDao.insertTransaction(withCurrentCategoryNames(listOf(transaction)).single())
 
@@ -139,7 +140,7 @@ open class TransactionRepository @Inject constructor(
             )
         }
     }
-    
+
     /**
      * Every edit goes through here, so a lowered amount also caps the goal
      * contributions taken from this transaction (#914).
@@ -157,11 +158,43 @@ open class TransactionRepository @Inject constructor(
     private suspend fun writeKeepingSplit(transaction: TransactionEntity) {
         val amounts = transactionDao.getShareAmounts(transaction.id)
         val shares = if (amounts.isEmpty()) null else amounts.fold(java.math.BigDecimal.ZERO, java.math.BigDecimal::add)
+        if (shares == null) {
+            val persisted = transactionDao.getTransactionById(transaction.id)
+            val hold = persisted?.let { holds.holdOf(it) }
+            if (persisted != null && hold != null) return writeKeepingHold(persisted, transaction, hold)
+        }
         val persisted = if (shares == null) null else transactionDao.getTransactionById(transaction.id)
         val safe = com.pennywiseai.tracker.domain.loan.SplitRules.keepSplitBill(persisted, transaction, shares)
         transactionDao.updateTransaction(safe.copy(lentSharesTotal = shares, updatedAt = LocalDateTime.now()))
     }
-    
+
+    /**
+     * A row a Shared group holds ([TransactionHolds]) keeps what the Shared
+     * expenses reconcile set: a linked expense its `lent_shares_total` (and,
+     * like a split bill, its type, currency and an amount that holds it), a
+     * linked Settlement payment its "don't count" flag, and an entry its
+     * amount, currency, type and date.
+     */
+    private suspend fun writeKeepingHold(persisted: TransactionEntity, updated: TransactionEntity, hold: TransactionHold) {
+        val safe = when (hold) {
+            TransactionHold.SHARED_EXPENSE -> com.pennywiseai.tracker.domain.loan.SplitRules
+                .keepSplitBill(persisted, updated, persisted.lentSharesTotal)
+                .copy(lentSharesTotal = persisted.lentSharesTotal)
+            TransactionHold.SHARED_SETTLEMENT -> updated.copy(lentSharesTotal = null, excludedFromAnalytics = true)
+            TransactionHold.SHARED_ENTRY -> updated.copy(
+                amount = persisted.amount,
+                currency = persisted.currency,
+                transactionType = persisted.transactionType,
+                dateTime = persisted.dateTime,
+                lentSharesTotal = null
+            )
+        }
+        transactionDao.updateTransaction(safe.copy(updatedAt = LocalDateTime.now()))
+    }
+
+    /** See [TransactionHolds]. */
+    suspend fun holdOf(transaction: TransactionEntity): TransactionHold? = holds.holdOf(transaction)
+
     open suspend fun deleteTransaction(transaction: TransactionEntity, hardDelete: Boolean = false) {
         if (hardDelete) {
             transactionDao.deleteTransaction(transaction)
@@ -311,7 +344,7 @@ open class TransactionRepository @Inject constructor(
             endDate = transaction.dateTime.plus(TransactionDeduplication.UPI_DUPLICATE_WINDOW)
         ).filter { candidate ->
             candidate.id != transaction.id &&
-                    TransactionDeduplication.isSameUpiTransaction(candidate, transaction)
+                TransactionDeduplication.isSameUpiTransaction(candidate, transaction)
         }
     }
 
@@ -348,7 +381,7 @@ open class TransactionRepository @Inject constructor(
     open suspend fun undoDeleteTransaction(transaction: TransactionEntity) {
         writeKeepingSplit(transaction.copy(isDeleted = false))
     }
-    
+
     /** See [TransactionDao.updateCategoryForMerchant]. */
     suspend fun updateCategoryForMerchant(merchantName: String, types: Collection<TransactionType>, excludeId: Long, newCategory: String): Int =
         transactionDao.updateCategoryForMerchant(merchantName, types.map { it.name }, excludeId, newCategory)
@@ -372,7 +405,7 @@ open class TransactionRepository @Inject constructor(
     /** Moves the rows of [ids] still in [from] to [to], in chunks under SQLite's variable limit; returns the count. */
     suspend fun moveCategory(ids: List<Long>, from: String, to: String): Int =
         ids.chunked(500).sumOf { transactionDao.moveCategory(it, from, to) }
-    
+
     /** How many rows [updateCategoryForMerchant] would move. */
     suspend fun countRecategorizableForMerchant(merchantName: String, types: Collection<TransactionType>, excludeId: Long): Int =
         transactionDao.countRecategorizableForMerchant(merchantName, types.map { it.name }, excludeId)
@@ -397,32 +430,32 @@ open class TransactionRepository @Inject constructor(
             LocalDateTime.now()
         )
     }
-    
+
     // Additional methods for Home screen
     data class MonthlyBreakdown(
         val total: BigDecimal,
         val income: BigDecimal,
         val expenses: BigDecimal
     )
-    
+
     fun getCurrentMonthBreakdown(): Flow<MonthlyBreakdown> {
         return getTransactionsForCurrentMonth()
             .map { transactions ->
                 transactions.toMonthlyBreakdown()
             }
     }
-    
+
     fun getCurrentMonthTotal(): Flow<BigDecimal> {
         return getCurrentMonthBreakdown().map { it.total }
     }
-    
+
     fun getLastMonthBreakdown(): Flow<MonthlyBreakdown> {
         return getTransactionsForComparableLastMonth()
             .map { transactions ->
                 transactions.toMonthlyBreakdown()
             }
     }
-    
+
     fun getLastMonthTotal(): Flow<BigDecimal> {
         return getLastMonthBreakdown().map { it.total }
     }
@@ -487,7 +520,7 @@ open class TransactionRepository @Inject constructor(
         return forTotals().filter { it.transactionType == type }
             .fold(BigDecimal.ZERO) { acc, transaction -> acc + transaction.amount }
     }
-    
+
     fun getRecentTransactions(limit: Int = 5): Flow<List<TransactionEntity>> {
         return transactionDao.getAllTransactions()
             .map { transactions ->

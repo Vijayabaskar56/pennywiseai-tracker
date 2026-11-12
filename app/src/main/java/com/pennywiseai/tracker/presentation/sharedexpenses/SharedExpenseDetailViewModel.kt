@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pennywiseai.tracker.data.sharedexpenses.SharedEntityType
 import com.pennywiseai.tracker.data.sharedexpenses.SharedExpensesRepository
+import com.pennywiseai.tracker.data.sharedexpenses.SharedLinkedTransaction
 import com.pennywiseai.tracker.data.sharedexpenses.SharedResult
 import com.pennywiseai.tracker.domain.sharedexpenses.SharedExpense
 import com.pennywiseai.tracker.domain.sharedexpenses.SplitMethod
@@ -93,6 +94,11 @@ data class SharedExpenseDetailUiState(
     val problem: ProblemRow? = null,
     val busy: Boolean = false,
     val message: UiText? = null,
+    /** My payment linked to this expense, if any. */
+    val linked: SharedLinkedTransaction? = null,
+    /** I paid on it, it is not deleted and nothing is linked yet. */
+    val canLink: Boolean = false,
+    val picker: LinkPickerState? = null,
 )
 
 @HiltViewModel
@@ -106,6 +112,7 @@ class SharedExpenseDetailViewModel @Inject constructor(
 
     private val busy = MutableStateFlow(false)
     private val message = MutableStateFlow<UiText?>(null)
+    private val picker = SharedLinkPicker(viewModelScope, repository)
 
     private val data = combine(
         repository.group(groupId),
@@ -123,8 +130,16 @@ class SharedExpenseDetailViewModel @Inject constructor(
         )
     }
 
-    val uiState: StateFlow<SharedExpenseDetailUiState> = combine(data, busy, message) { d, b, m ->
-        d.copy(busy = b, message = m)
+    val uiState: StateFlow<SharedExpenseDetailUiState> = combine(
+        data,
+        busy,
+        message,
+        repository.linkedTransaction(SharedEntityType.EXPENSE, expenseId),
+        picker.state,
+    ) { d, b, m, linked, p ->
+        val e = d.expense
+        val iPaid = e != null && e.payers.any { it.who == PersonRef.Me }
+        d.copy(busy = b, message = m, linked = linked, canLink = iPaid && !e!!.deleted && linked == null, picker = p)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SharedExpenseDetailUiState())
 
     fun delete() = run { repository.deleteExpense(groupId, expenseId) }
@@ -138,6 +153,24 @@ class SharedExpenseDetailViewModel @Inject constructor(
     fun discard(itemId: Long) = run { repository.discardChange(itemId) }
 
     fun clearMessage() = message.update { null }
+
+    fun openLinkPicker() {
+        val e = uiState.value.expense ?: return
+        val mine = e.payers.filter { it.who == PersonRef.Me }.fold(BigDecimal.ZERO) { acc, p -> acc + p.amount }
+        picker.open(e.currency, credit = false, amount = mine)
+    }
+
+    fun closeLinkPicker() = picker.close()
+
+    fun link(transactionId: Long) {
+        picker.close()
+        run { repository.linkExpense(transactionId, expenseId) }
+    }
+
+    fun unlink() {
+        val id = uiState.value.linked?.transactionId ?: return
+        run { repository.unlinkTransaction(id) }
+    }
 
     private fun run(block: suspend () -> SharedResult<Unit>) {
         if (busy.value) return

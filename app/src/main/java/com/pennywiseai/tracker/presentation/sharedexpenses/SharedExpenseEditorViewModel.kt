@@ -6,8 +6,10 @@ import androidx.lifecycle.viewModelScope
 import com.pennywiseai.tracker.data.database.entity.CategoryEntity
 import com.pennywiseai.tracker.data.repository.CategoryRepository
 import com.pennywiseai.tracker.data.repository.TransactionRepository
+import com.pennywiseai.tracker.data.sharedexpenses.SharedEntityType
 import com.pennywiseai.tracker.data.sharedexpenses.SharedError
 import com.pennywiseai.tracker.data.sharedexpenses.SharedExpensesRepository
+import com.pennywiseai.tracker.data.sharedexpenses.SharedLinkedTransaction
 import com.pennywiseai.tracker.data.sharedexpenses.SharedResult
 import com.pennywiseai.tracker.domain.sharedexpenses.RecurringInterval
 import com.pennywiseai.tracker.domain.sharedexpenses.SharedExpense
@@ -19,6 +21,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -37,11 +40,20 @@ data class SharedExpenseEditorUiState(
     val categories: List<CategoryEntity> = emptyList(),
     val form: ExpenseForm = ExpenseForm(),
     val preview: ExpensePreview = ExpensePreview(),
-    /** The bank transaction this form was filled from, kept for linking at save time (a later task). */
+    /** The bank transaction this form was filled from. */
     val fromTransactionId: Long? = null,
+    /** My payment already linked to the expense being edited. */
+    val linked: SharedLinkedTransaction? = null,
+    /** A payment picked here (or the one the form was filled from), linked when the expense is saved. */
+    val pendingLink: SharedLinkedTransaction? = null,
+    /** I pay on this expense and nothing is linked or picked. */
+    val canLink: Boolean = false,
+    val picker: LinkPickerState? = null,
     val busy: Boolean = false,
     /** Saved on this phone; the screen goes back. */
     val saved: Boolean = false,
+    /** Why the picked bank transaction was not linked although the expense was saved. */
+    val savedNotice: UiText? = null,
     val message: UiText? = null,
 ) {
     val canSave: Boolean get() = !loading && !busy && preview.draft != null
@@ -71,7 +83,24 @@ class SharedExpenseEditorViewModel @Inject constructor(
     private val form = MutableStateFlow<ExpenseForm?>(null)
     private val status = MutableStateFlow(Status())
 
-    private data class Status(val gone: Boolean = false, val busy: Boolean = false, val saved: Boolean = false, val message: UiText? = null)
+    private val pendingLink = MutableStateFlow<SharedLinkedTransaction?>(null)
+    private val picker = SharedLinkPicker(viewModelScope, repository)
+
+    private data class LinkUi(val linked: SharedLinkedTransaction?, val pending: SharedLinkedTransaction?, val picker: LinkPickerState?)
+
+    private val linkUi = combine(
+        if (mode == EditorMode.EDIT_EXPENSE) repository.linkedTransaction(SharedEntityType.EXPENSE, expenseId!!) else flowOf(null),
+        pendingLink,
+        picker.state,
+    ) { l, p, pk -> LinkUi(l, p, pk) }
+
+    private data class Status(
+        val gone: Boolean = false,
+        val busy: Boolean = false,
+        val saved: Boolean = false,
+        val savedNotice: UiText? = null,
+        val message: UiText? = null,
+    )
 
     private val members = combine(repository.group(groupId), named) { detail, n ->
         detail?.let { editorMembers(it.members, it.group.myMemberId, n) }
@@ -82,19 +111,29 @@ class SharedExpenseEditorViewModel @Inject constructor(
         form,
         status,
         categoryRepository.getVisibleExpenseCategories(),
-    ) { m, f, s, categories ->
+        linkUi,
+    ) { m, f, s, categories, link ->
         if (s.gone) return@combine SharedExpenseEditorUiState(loading = false, gone = true, mode = mode)
         if (m == null || f == null) return@combine SharedExpenseEditorUiState(mode = mode, busy = s.busy)
+        var iPay = false
         SharedExpenseEditorUiState(
             loading = false,
             mode = mode,
             members = m,
             categories = categories,
             form = f,
-            preview = previewExpense(f, m),
+            preview = previewExpense(f, m).also { preview ->
+                val me = m.firstOrNull { it.isMe }?.id
+                iPay = me != null && (preview.draft?.payers?.any { it.memberId == me } ?: (f.payerId == me))
+            },
             fromTransactionId = fromTransactionId,
+            linked = link.linked,
+            pendingLink = link.pending,
+            canLink = mode != EditorMode.EDIT_RECURRING && iPay && link.linked == null && link.pending == null,
+            picker = link.picker,
             busy = s.busy,
             saved = s.saved,
+            savedNotice = s.savedNotice,
             message = s.message,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SharedExpenseEditorUiState(mode = mode))
@@ -127,6 +166,7 @@ class SharedExpenseEditorViewModel @Inject constructor(
                     // Read only: the transaction is not linked or changed here.
                     transactionRepository.getTransactionById(id)?.let { t ->
                         f = f.fromTransaction(t.merchantName, t.amount, t.currency, t.dateTime.toLocalDate(), t.category)
+                        pendingLink.value = SharedLinkedTransaction(t.id, t.merchantName, t.amount, t.currency, t.dateTime.toLocalDate())
                     }
                 }
                 form.value = f
@@ -203,6 +243,35 @@ class SharedExpenseEditorViewModel @Inject constructor(
 
     fun clearMessage() = status.update { it.copy(message = null) }
 
+    // ── Link a bank transaction ──
+
+    fun openLinkPicker() {
+        val f = form.value ?: return
+        val me = uiState.value.members.firstOrNull { it.isMe }?.id
+        val mine = uiState.value.preview.draft?.payers?.filter { it.memberId == me }?.fold(java.math.BigDecimal.ZERO) { a, p -> a + p.amount }
+        picker.open(f.currency, credit = false, amount = mine)
+    }
+
+    fun closeLinkPicker() = picker.close()
+
+    /** Picks [t]; it is linked when the expense is saved. */
+    fun pickLink(t: SharedLinkedTransaction) {
+        picker.close()
+        pendingLink.value = t
+    }
+
+    /** Drops the picked payment, or unlinks the one already linked (at once). */
+    fun unlink() {
+        if (pendingLink.value != null) {
+            pendingLink.value = null
+            return
+        }
+        val id = uiState.value.linked?.transactionId ?: return
+        viewModelScope.launch {
+            (repository.unlinkTransaction(id) as? SharedResult.Failure)?.let { r -> status.update { it.copy(message = sharedErrorText(r.error)) } }
+        }
+    }
+
     // ── Save ──
 
     /** Saves on this phone (queued for the server, so it works offline), then the screen goes back. */
@@ -217,18 +286,19 @@ class SharedExpenseEditorViewModel @Inject constructor(
         }
         status.update { it.copy(busy = true) }
         viewModelScope.launch {
+            var linkError: SharedError? = null
             val error = try {
                 when (mode) {
                     EditorMode.EDIT_RECURRING -> repository.saveRecurring(groupId, recurringId, draft, f.repeat ?: RecurringInterval.MONTHLY, f.date).errorOrNull()
                     EditorMode.EDIT_EXPENSE -> when (val r = repository.saveExpense(groupId, expenseId, draft, f.date)) {
-                        is SharedResult.Success -> null.also { onSaved(r.value, fromTransactionId) }
+                        is SharedResult.Success -> null.also { linkError = onSaved(r.value) }
                         is SharedResult.Failure -> r.error
                     }
                     EditorMode.NEW -> {
                         val repeat = f.repeat
                         if (repeat == null) {
                             when (val r = repository.saveExpense(groupId, null, draft, f.date)) {
-                                is SharedResult.Success -> null.also { onSaved(r.value, fromTransactionId) }
+                                is SharedResult.Success -> null.also { linkError = onSaved(r.value) }
                                 is SharedResult.Failure -> r.error
                             }
                         } else {
@@ -236,7 +306,7 @@ class SharedExpenseEditorViewModel @Inject constructor(
                                 is SharedResult.Success -> {
                                     // saveRecurring records the first expense itself.
                                     repository.expenses(groupId).first().firstOrNull { it.recurringId == r.value.id }
-                                        ?.let { onSaved(it, fromTransactionId) }
+                                        ?.let { linkError = onSaved(it) }
                                     null
                                 }
                                 is SharedResult.Failure -> r.error
@@ -248,7 +318,7 @@ class SharedExpenseEditorViewModel @Inject constructor(
                 status.update { it.copy(busy = false) }
             }
             if (error == null) {
-                status.update { it.copy(saved = true) }
+                status.update { it.copy(saved = true, savedNotice = linkError?.let(::sharedErrorText)) }
             } else {
                 if (error is SharedError.Invalid) edit { it.copy(touched = FormField.entries.toSet()) }
                 status.update { it.copy(message = sharedErrorText(error)) }
@@ -257,14 +327,18 @@ class SharedExpenseEditorViewModel @Inject constructor(
     }
 
     /**
-     * Where linking a bank transaction attaches. Called once [expense] is saved
-     * on this phone; [fromTransactionId] is the transaction the form was filled
-     * from, or null. For a new recurring expense, [expense] is the first expense
-     * it recorded. Does nothing yet: the transaction is left untouched until the
-     * budget-link task links it here (shared_links, lent_shares_total).
+     * Called once [expense] is saved on this phone (for a new recurring
+     * expense, the first expense it recorded). Links the picked payment, which
+     * starts as the transaction the form was filled from. The link is made only
+     * when I am a payer on the saved expense; otherwise the transaction stays
+     * unlinked. Linking runs the budget reconcile. Returns why the link was
+     * refused, or null.
      */
-    @Suppress("UNUSED_PARAMETER", "RedundantSuspendModifier")
-    private suspend fun onSaved(expense: SharedExpense, fromTransactionId: Long?) = Unit
+    private suspend fun onSaved(expense: SharedExpense): SharedError? {
+        val transactionId = pendingLink.value?.transactionId ?: return null
+        if (uiState.value.linked != null) return null
+        return repository.linkExpense(transactionId, expense.id).errorOrNull()
+    }
 
     private fun SharedResult<*>.errorOrNull(): SharedError? = (this as? SharedResult.Failure)?.error
 }

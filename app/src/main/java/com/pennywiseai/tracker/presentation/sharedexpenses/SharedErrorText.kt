@@ -3,6 +3,7 @@ package com.pennywiseai.tracker.presentation.sharedexpenses
 import androidx.annotation.StringRes
 import com.pennywiseai.tracker.R
 import com.pennywiseai.tracker.data.sharedexpenses.SharedError
+import com.pennywiseai.tracker.data.sharedexpenses.SharedLinkRefusal
 import com.pennywiseai.tracker.data.sharedexpenses.SharedServerCode
 import com.pennywiseai.tracker.domain.sharedexpenses.SharedExpenseError
 import com.pennywiseai.tracker.ui.UiText
@@ -20,8 +21,24 @@ fun sharedErrorText(error: SharedError): UiText = when (error) {
     SharedError.DisplayNameRequired -> UiText.Res(R.string.shared_error_name_required)
     SharedError.NotFound -> UiText.Res(R.string.shared_error_not_on_phone)
     SharedError.DeletedElsewhere -> UiText.Res(R.string.shared_error_deleted_elsewhere)
+    is SharedError.LinkRefused -> UiText.Res(linkRefusalRes(error.reason))
     is SharedError.Network -> UiText.Res(R.string.shared_error_network)
     is SharedError.Server -> UiText.Res(serverCodeRes(error.code))
+}
+
+/** Why a bank transaction could not be linked. */
+@StringRes
+fun linkRefusalRes(reason: SharedLinkRefusal): Int = when (reason) {
+    SharedLinkRefusal.TRANSACTION_GONE -> R.string.shared_link_refused_gone
+    SharedLinkRefusal.NOT_A_DEBIT -> R.string.shared_link_refused_not_debit
+    SharedLinkRefusal.NOT_A_CREDIT -> R.string.shared_link_refused_not_credit
+    SharedLinkRefusal.CURRENCY_MISMATCH -> R.string.shared_link_refused_currency
+    SharedLinkRefusal.TRANSACTION_TAKEN -> R.string.shared_link_refused_taken
+    SharedLinkRefusal.SPLIT_OR_LOAN -> R.string.shared_link_refused_split
+    SharedLinkRefusal.APP_ENTRY -> R.string.shared_link_refused_entry
+    SharedLinkRefusal.NOT_A_PAYER -> R.string.shared_link_refused_not_payer
+    SharedLinkRefusal.NOT_A_PARTY -> R.string.shared_link_refused_not_party
+    SharedLinkRefusal.ALREADY_LINKED -> R.string.shared_link_refused_already
 }
 
 /** The message for a server `error` code. */

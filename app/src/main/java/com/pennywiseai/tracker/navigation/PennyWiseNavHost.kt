@@ -233,6 +233,7 @@ fun PennyWiseNavHost(
                                 onNavigateToGoal = { goalId ->
                                     backStack.navigate(GoalDetail(goalId))
                                 },
+                                onOpenShared = { backStack.navigate(it) },
                                 onCreateGoal = {
                                     backStack.navigate(GoalEdit())
                                 }

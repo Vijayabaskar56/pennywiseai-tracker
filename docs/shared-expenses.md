@@ -26,7 +26,7 @@ beside PennyWise.
 
 ## Terms
 
-These are new and will be added to `GLOSSARY.md` when the first code lands.
+These are in `GLOSSARY.md` under "Shared expenses".
 "Group" alone is ambiguous: the app already has **Transaction groups**
 (`transaction_groups`), which are local labels for a set of transactions.
 
@@ -163,11 +163,40 @@ Settlement.**
   Share: a linked bank transaction gets `lent_shares_total = max(P − S, 0)`,
   and the entry is `max(S − P, 0)`. With no linked transaction the entry is
   `S`. When the entry would be zero there is none.
-- **A linked Settlement payment** becomes a transfer, so it is neither
-  spending nor income; unlinking gives it its original type back.
-- **One reconcile step** applies these rules after every sync and every local
-  change. It compares the Shared expenses with the entries and links it made
-  before and fixes any difference, so it can run any number of times.
+- **A linked Settlement payment** is neither spending nor income. It is
+  not turned into a `TRANSFER`: a standalone transfer moves account balances
+  through `from_account`/`to_account` and takes part in transfer pairing.
+  Instead the link sets `excluded_from_analytics`, which only totals read
+  (`countedAmount`), and keeps the value it had before on the link
+  (`shared_links.original_type`), so unlinking puts it back exactly.
+- **One reconcile step** (`data/sharedexpenses/SharedBudgetLink`) applies these
+  rules after every sync, after every local change to an expense, Settlement or
+  link, after a restore and once at app start. It compares the Shared expenses
+  with the links and with `shared_projections` (what it last wrote on each
+  entry) and fixes any difference, so a second run writes nothing.
+  - It always owns the entry's amount, currency, type and date; its merchant
+    and category only when created, and afterwards only when the expense's own
+    value changed, so a hand edit survives. The entry is a manual transaction
+    with no account and no profile, category "Others" when the expense has none.
+  - An entry the user deleted stays deleted (a projection row with no live
+    entry). A linked bank transaction the user deleted drops the link, and the
+    entry becomes the whole Share. A re-parse that re-inserts the bank
+    transaction under a new ID is found again by its hash.
+  - A deleted expense removes its entry and clears the linked value (the
+    transaction counts in full); restoring the expense brings both back.
+  - Links and entries of a group no longer on this phone (deleted, left,
+    removed, another server) are left exactly as they are.
+  - Only groups where this phone's member ID is known count; pending expenses
+    count the same as synced ones.
+- **Keeping the value through edits.** `TransactionRepository.updateTransaction`
+  (every edit, rule, re-parse and bulk update) asks `TransactionHolds` before
+  writing: a linked expense keeps its `lent_shares_total` (and, like a split
+  bill, its type, currency and an amount that holds it), a linked Settlement
+  payment stays excluded, and an entry keeps its amount, currency, type and
+  date. A backup restore resets `lent_shares_total`; the reconcile after the
+  restore sets it again.
+- **Split bill or Shared, never both** is enforced in `LoanRepository.saveSplit`
+  and in linking, and the transaction screen offers only one of them.
 - **Local Split bills and Loans stay** for one-off IOUs with people who do not
   use the app. Shared groups do not create Loans.
 
@@ -197,7 +226,10 @@ joined or removed; group renamed), and enough detail to show a line such as
 one across all groups. A deleted expense can be restored from the feed.
 
 Without push, a phone learns about changes when it syncs. When a background
-sync finds changes made by someone else, the app posts a local notification.
+sync finds changes made by someone else, the app posts one notification per
+Shared group (none while the app is open, since the feed is on screen); tapping
+it opens the group. Background syncs run about once an hour, so a notification
+can arrive up to an hour after the change.
 Push is designed in as a later step: a `push_tokens` table on the server and a
 Firebase project, with the same sync running when a push arrives.
 
@@ -217,9 +249,10 @@ Firebase project, with the same sync running when a push arrives.
   it was based on. If someone else changed the expense first, the server
   refuses the edit and returns the current copy; the app keeps the user's
   draft and shows both so they can redo the edit. A delete always wins.
-- **When it runs:** on opening the app, on opening a Shared group, on
-  pull-to-refresh, after any local change, and on a WorkManager schedule a few
-  times a day.
+- **When it runs:** on opening the Shared tab, a Shared group or its Members
+  screen (and coming back to one), on
+  pull-to-refresh, after any local change, and on a WorkManager schedule about
+  once an hour.
 
 ### Server routes (version 1)
 
@@ -270,13 +303,17 @@ tests.
 
 - **The server copy is not backed up by the app.** After a restore the phone
   pulls its groups again.
-- **`shared_expense_links` is backed up**, because only the phone knows which
-  bank transaction belongs to which Shared expense. Every field has a Kotlin
-  default (hard constraint 3), and a restore must match links by the Shared
-  expense's UUID so it never duplicates one. This goes through the
-  `backup-maintainer` skill.
-- **The user ID and secret are backed up**, so a restore brings back every
-  Shared group with no one's help. Anyone who gets the backup file can act as
+- **`shared_links` is backed up** (the `shared_expenses` section, `FULL`
+  exports only; see `docs/backup-format.md`), because only the phone knows
+  which bank transaction belongs to which Shared expense. Every field has a
+  Kotlin default (hard constraint 3). A restore finds each link's transaction
+  by `transaction_hash`, skips a link whose transaction did not come back, and
+  never links a transaction or an expense twice. The Shared expenses whose
+  entry the user deleted travel too, so the entry stays deleted.
+- **The user ID and secret are backed up** (with the server address and
+  display name), so a restore brings back every Shared group with no one's
+  help. A restore takes them only when the phone has no registration of its
+  own, then syncs and runs the reconcile. Anyone who gets the backup file can act as
   that person in their groups; the file already holds all their finances, and
   an Invite link for the seat cuts the old secret off if a file leaks.
 - **The outbox is not backed up.** Unsent changes on a lost phone are lost.
@@ -333,7 +370,7 @@ Each phase ends with `./init.sh app` and, for anything visible, the
 | Offline use | Version 1 |
 | Several currencies in one group | Version 1, balances kept per currency |
 | Friends who have not joined yet | Version 1, as member seats |
-| Push notifications | Later |
+| Notifications | Version 1 after a background sync (up to an hour late). Instant push: later. |
 | Expenses with a friend outside any group | Later. Use a group of two for now. |
 | Total balance with one person across all groups | Later |
 | Split by adjustment, itemized split | Later |
@@ -344,5 +381,4 @@ Each phase ends with `./init.sh app` and, for anything visible, the
 
 ## Open questions
 
-Where Shared groups sit in the app (next to Loans, or a tab of its own) is
-settled with a mock-up in phase 2.
+None. Shared groups sit in a bottom tab of their own, "Shared".

@@ -1,6 +1,5 @@
 package com.pennywiseai.tracker.data.repository
 
-import com.pennywiseai.tracker.data.database.withTransaction
 import com.pennywiseai.tracker.data.database.PennyWiseDatabase
 import com.pennywiseai.tracker.data.database.dao.LoanDao
 import com.pennywiseai.tracker.data.database.dao.TransactionDao
@@ -10,6 +9,7 @@ import com.pennywiseai.tracker.data.database.entity.LoanShareEntity
 import com.pennywiseai.tracker.data.database.entity.LoanStatus
 import com.pennywiseai.tracker.data.database.entity.TransactionEntity
 import com.pennywiseai.tracker.data.database.entity.TransactionType
+import com.pennywiseai.tracker.data.database.withTransaction
 import com.pennywiseai.tracker.domain.loan.SplitShare
 import com.pennywiseai.tracker.utils.countedAmount
 import io.mockk.coEvery
@@ -308,5 +308,15 @@ class LoanSplitTest {
         }
         assertTrue(loans.isEmpty())
         assertTrue(shares.isEmpty())
+    }
+
+    @Test
+    fun `a transaction linked to a Shared group cannot also be split`() = runBlocking {
+        txn(1, "1000")
+        val held = LoanRepository(loanDao, transactionDao, database, TransactionHolds { TransactionHold.SHARED_EXPENSE })
+        val error = runCatching { held.saveSplit(1, listOf(SplitShare("Member A", d("400")))) }.exceptionOrNull()
+        assertTrue(error is IllegalArgumentException)
+        assertTrue(shares.isEmpty())
+        assertNull(txns.getValue(1).lentSharesTotal)
     }
 }

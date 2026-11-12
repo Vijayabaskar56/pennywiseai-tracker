@@ -40,6 +40,7 @@ class SharedExpensesRepository @Inject constructor(
     private val identity: SharedIdentity,
     private val sync: SharedSyncManager,
     private val scheduler: SharedSyncScheduler,
+    private val budget: SharedBudgetLink,
 ) {
     private val groupDao = db.groupDao()
     private val memberDao = db.memberDao()
@@ -296,6 +297,7 @@ class SharedExpensesRepository @Inject constructor(
             version = existing?.version ?: 0, rev = existing?.rev ?: 0, pending = true,
         )
         sync.queueSave(SharedEntity.Expense(expense))
+        budget.reconcile()
         scheduler.syncSoon()
         return SharedResult.Success(expense)
     }
@@ -307,6 +309,7 @@ class SharedExpensesRepository @Inject constructor(
     suspend fun restoreExpense(groupId: String, expenseId: String): SharedResult<Unit> {
         if (store.expense(expenseId)?.groupId != groupId) return SharedResult.Failure(SharedError.NotFound)
         if (!sync.queueRestore(expenseId)) return SharedResult.Failure(SharedError.NotFound)
+        budget.reconcile()
         scheduler.syncSoon()
         return SharedResult.Success(Unit)
     }
@@ -329,6 +332,7 @@ class SharedExpensesRepository @Inject constructor(
             version = existing?.version ?: 0, rev = existing?.rev ?: 0, pending = true,
         )
         sync.queueSave(SharedEntity.Settlement(settlement))
+        budget.reconcile()
         scheduler.syncSoon()
         return SharedResult.Success(settlement)
     }
@@ -400,10 +404,43 @@ class SharedExpensesRepository @Inject constructor(
      * server's version replaces the local one.
      */
     suspend fun resolveConflict(itemId: Long, keepMine: Boolean): SharedResult<Unit> =
-        sync.resolveConflict(itemId, keepMine).also { if (it is SharedResult.Success && keepMine) scheduler.syncSoon() }
+        sync.resolveConflict(itemId, keepMine).also {
+            budget.reconcile()
+            if (it is SharedResult.Success && keepMine) scheduler.syncSoon()
+        }
 
     /** Drops a failed (or conflicting) change and puts the server's copy back. */
-    suspend fun discardChange(itemId: Long): SharedResult<Unit> = sync.discard(itemId)
+    suspend fun discardChange(itemId: Long): SharedResult<Unit> = sync.discard(itemId).also { budget.reconcile() }
+
+    // ── Link to the budget (SharedBudgetLink) ──
+
+    /** Links my payment [transactionId] to the expense [expenseId] (I must have paid on it). */
+    suspend fun linkExpense(transactionId: Long, expenseId: String): SharedResult<Unit> = budget.linkExpense(transactionId, expenseId)
+
+    /** Links [transactionId] to the Settlement [settlementId] (my debit when I paid, my credit when I received). */
+    suspend fun linkSettlement(transactionId: Long, settlementId: String): SharedResult<Unit> = budget.linkSettlement(transactionId, settlementId)
+
+    /** Unlinks [transactionId]; it counts exactly as before it was linked. */
+    suspend fun unlinkTransaction(transactionId: Long): SharedResult<Unit> = budget.unlink(transactionId)
+
+    /** How [transaction] is tied to a Shared group, or null. */
+    suspend fun tieOf(transaction: com.pennywiseai.tracker.data.database.entity.TransactionEntity): SharedTransactionTie? = budget.tieOf(transaction)
+
+    /** [tieOf], kept up to date as links change. */
+    fun observeTie(transaction: com.pennywiseai.tracker.data.database.entity.TransactionEntity): Flow<SharedTransactionTie?> = budget.observeTie(transaction)
+
+    /** The bank transaction linked to an expense or Settlement. */
+    fun linkedTransaction(type: SharedEntityType, entityId: String): Flow<SharedLinkedTransaction?> = budget.linkedTo(type, entityId)
+
+    /** Transactions that could be linked; see [SharedBudgetLink.candidates]. */
+    suspend fun linkCandidates(currency: String, credit: Boolean, amount: java.math.BigDecimal?): List<SharedLinkedTransaction> =
+        budget.candidates(currency, credit, amount)
+
+    /** [transactionId] as a link candidate, and whether it is a credit; null when it is gone. */
+    suspend fun linkableTransaction(transactionId: Long): SharedLinkable? = budget.linkable(transactionId)
+
+    /** Runs the budget reconcile (app start, after a restore). */
+    suspend fun reconcileBudget() = budget.reconcile()
 
     /** Sends and fetches now (pull-to-refresh, opening the tab or a group). */
     suspend fun syncNow(): SharedSyncResult {
@@ -415,6 +452,7 @@ class SharedExpensesRepository @Inject constructor(
 
     private suspend fun queueDelete(groupId: String, type: SharedEntityType, id: String, storedGroupId: String?): SharedResult<Unit> {
         if (storedGroupId != groupId || !sync.queueDelete(type, id)) return SharedResult.Failure(SharedError.NotFound)
+        budget.reconcile()
         scheduler.syncSoon()
         return SharedResult.Success(Unit)
     }

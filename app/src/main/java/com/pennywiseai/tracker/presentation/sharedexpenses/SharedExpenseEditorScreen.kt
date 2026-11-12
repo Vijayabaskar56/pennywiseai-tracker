@@ -1,5 +1,6 @@
 package com.pennywiseai.tracker.presentation.sharedexpenses
 
+import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -47,6 +48,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -95,7 +97,15 @@ fun SharedExpenseEditorScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
 
-    LaunchedEffect(state.saved, state.gone) { if (state.saved || state.gone) onNavigateBack() }
+    val context = LocalContext.current
+    val savedNotice = state.savedNotice?.asString()
+    LaunchedEffect(state.saved, state.gone) {
+        if (state.saved || state.gone) {
+            // The expense is saved; say why its bank transaction was not linked.
+            if (savedNotice != null) Toast.makeText(context, savedNotice, Toast.LENGTH_LONG).show()
+            onNavigateBack()
+        }
+    }
     val message = state.message?.asString()
     LaunchedEffect(message) {
         if (message != null) {
@@ -269,6 +279,17 @@ private fun EditorForm(state: SharedExpenseEditorUiState, vm: SharedExpenseEdito
             }
         }
 
+        SharedLinkSection(
+            linked = state.linked,
+            pending = state.pendingLink,
+            canLink = state.canLink,
+            hint = stringResource(R.string.shared_link_expense_hint),
+            onLink = vm::openLinkPicker,
+            onUnlink = vm::unlink,
+            enabled = !state.busy,
+            modifier = Modifier.padding(top = Spacing.md),
+        )
+
         val notesError = preview.errorAt(FormField.NOTES, touched)
         OutlinedTextField(
             value = form.notes,
@@ -280,6 +301,10 @@ private fun EditorForm(state: SharedExpenseEditorUiState, vm: SharedExpenseEdito
             keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
             modifier = Modifier.fillMaxWidth().padding(top = Spacing.md, bottom = Spacing.Layout.scrollBottomPadding),
         )
+    }
+
+    state.picker?.let { p ->
+        SharedLinkPickerDialog(p.currency, p.candidates, onPick = vm::pickLink, onDismiss = vm::closeLinkPicker)
     }
 
     when (picker) {

@@ -1,6 +1,5 @@
 package com.pennywiseai.tracker.data.repository
 
-import com.pennywiseai.tracker.data.database.withTransaction
 import com.pennywiseai.tracker.data.database.PennyWiseDatabase
 import com.pennywiseai.tracker.data.database.dao.LoanDao
 import com.pennywiseai.tracker.data.database.dao.SharedTransaction
@@ -11,6 +10,7 @@ import com.pennywiseai.tracker.data.database.entity.LoanShareEntity
 import com.pennywiseai.tracker.data.database.entity.LoanStatus
 import com.pennywiseai.tracker.data.database.entity.TransactionEntity
 import com.pennywiseai.tracker.data.database.entity.TransactionType
+import com.pennywiseai.tracker.data.database.withTransaction
 import com.pennywiseai.tracker.domain.loan.LoanMath
 import com.pennywiseai.tracker.domain.loan.SettledShareException
 import com.pennywiseai.tracker.domain.loan.SplitPerson
@@ -30,7 +30,8 @@ import javax.inject.Singleton
 class LoanRepository @Inject constructor(
     private val loanDao: LoanDao,
     private val transactionDao: TransactionDao,
-    private val database: PennyWiseDatabase
+    private val database: PennyWiseDatabase,
+    private val holds: TransactionHolds = TransactionHolds.NONE
 ) {
     // Repayments read what's owed, then write the capped share: serialized so two
     // quick taps can't both see the same balance and over-repay (#831). All loan
@@ -373,6 +374,8 @@ class LoanRepository @Inject constructor(
         if (shares.isNotEmpty()) {
             require(txn.transactionType == TransactionType.EXPENSE) { "Only an expense can be split" }
             require(txn.loanId == null) { "Unmark the loan before splitting" }
+            // A transaction is a local Split bill or held by a Shared group, never both.
+            require(holds.holdOf(txn) == null) { "Unlink it from the Shared group before splitting" }
             val error = SplitRules.validate(txn.amount, shares)
             require(error == null) { "Invalid split: $error" }
         }
