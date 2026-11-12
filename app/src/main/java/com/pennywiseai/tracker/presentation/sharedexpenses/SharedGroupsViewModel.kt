@@ -103,8 +103,8 @@ class SharedGroupsViewModel @Inject constructor(
         s.copy(loading = false, groups = groups, summary = summarizeGroups(groups), form = f)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SharedGroupsUiState())
 
-    init {
-        // Opening the tab syncs (docs/shared-expenses.md, "When it runs").
+    /** The tab came to the front: sync (docs/shared-expenses.md, "When it runs"). */
+    fun onShown() {
         if (repository.identityState.value.addressSet) refresh()
     }
 

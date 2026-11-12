@@ -19,7 +19,7 @@ class RootDestinationsTest {
         val activity = File(src, "MainActivity.kt").readText()
         val handler = activity.substringAfter("fun handleWidgetIntent(").substringBefore("\n    }\n")
         val opened = Regex("""navigation\.(\w+)""").findAll(handler).map { it.groupValues[1] }.toSet()
-        assertEquals(setOf("SharedJoin", "GoalDetail", "UnrecognizedSms", "Review", "BudgetGroups"), opened)
+        assertEquals(setOf("SharedJoin", "SharedGroupDetail", "GoalDetail", "UnrecognizedSms", "Review", "BudgetGroups"), opened)
 
         val host = File(src, "navigation/PennyWiseNavHost.kt").readText()
         // The host also registers the Shared expenses screens through sharedExpensesEntries(…).

@@ -47,6 +47,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pennywiseai.tracker.R
 import com.pennywiseai.tracker.ui.components.PennyWiseScaffold
@@ -75,6 +77,9 @@ fun SharedMembersScreen(
     val form = state.form
     val context = LocalContext.current
     val snackbar = remember { SnackbarHostState() }
+
+    // Someone may have joined since the last sync, so fetch seats and invites each time this shows.
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.refresh() }
 
     // The group detail under this screen says why; just step back to it.
     LaunchedEffect(state.gone) { if (state.gone) onNavigateBack() }

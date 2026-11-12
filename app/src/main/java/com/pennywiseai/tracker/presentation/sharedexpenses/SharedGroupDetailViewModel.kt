@@ -62,11 +62,7 @@ class SharedGroupDetailViewModel @Inject constructor(
         d.copy(syncing = sync.syncing, syncError = sync.lastError)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SharedGroupDetailUiState())
 
-    init {
-        // Opening a group syncs (docs/shared-expenses.md, "When it runs").
-        refresh()
-    }
-
+    /** Pull-to-refresh, Retry and the screen coming to the front (docs/shared-expenses.md, "When it runs"). */
     fun refresh() {
         if (repository.syncState.value.syncing) return
         viewModelScope.launch { repository.syncNow() }

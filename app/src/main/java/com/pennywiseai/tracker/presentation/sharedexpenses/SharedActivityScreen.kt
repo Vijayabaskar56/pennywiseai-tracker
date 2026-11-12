@@ -123,7 +123,11 @@ private fun ActivityLine(
         Icon(activityIcon(row.activity.type), contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(Spacing.xxs)) {
             Text(activityText(row.activity, row.myMemberId, row.names).asString(), style = MaterialTheme.typography.bodyMedium)
-            val time = DateUtils.getRelativeTimeSpanString(row.activity.createdAt, now, DateUtils.MINUTE_IN_MILLIS).toString()
+            val time = if (now - row.activity.createdAt < DateUtils.MINUTE_IN_MILLIS) {
+                stringResource(R.string.shared_activity_just_now)
+            } else {
+                DateUtils.getRelativeTimeSpanString(row.activity.createdAt, now, DateUtils.MINUTE_IN_MILLIS).toString()
+            }
             Text(
                 row.groupName?.let { stringResource(R.string.shared_activity_meta_group, it, time) } ?: time,
                 style = MaterialTheme.typography.bodySmall,

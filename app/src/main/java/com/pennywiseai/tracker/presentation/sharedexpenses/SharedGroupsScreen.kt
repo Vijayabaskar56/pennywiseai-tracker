@@ -52,6 +52,8 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.NavKey
 import com.pennywiseai.tracker.R
@@ -87,6 +89,9 @@ fun SharedGroupsScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val form = state.form
+
+    // Opening the tab, coming back to it and reopening the app all sync.
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.onShown() }
 
     LaunchedEffect(form.openGroupId) {
         form.openGroupId?.let {

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Notifications for changes other members make in a Shared group (docs/shared-expenses.md, "Activity feed"). -->
+    <string name="shared_notification_channel_name">Shared expenses</string>
+    <string name="shared_notification_channel_description">Changes other members make in your Shared groups</string>
+    <plurals name="shared_notification_changes">
+        <item quantity="one">%d new change</item>
+        <item quantity="other">%d new changes</item>
+    </plurals>
+    <string name="shared_activity_just_now">Just now</string>
+</resources>

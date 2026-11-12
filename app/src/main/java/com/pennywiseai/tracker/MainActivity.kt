@@ -53,6 +53,7 @@ class MainActivity : FragmentActivity() {
         private const val KEY_LAUNCH_PENDING = "launch_request_pending"
         const val EXTRA_OPEN_BUDGETS = "com.pennywiseai.tracker.OPEN_BUDGETS"
         const val EXTRA_CREATE_GOAL = "com.pennywiseai.tracker.CREATE_GOAL"
+        const val EXTRA_OPEN_SHARED_GROUP = "com.pennywiseai.tracker.OPEN_SHARED_GROUP"
 
         /**
          * Deep link that jumps straight to Add Transaction: `pennywise://add`.
@@ -178,8 +179,10 @@ class MainActivity : FragmentActivity() {
         intent ?: return
         val goalId = intent.getLongExtra(EXTRA_OPEN_GOAL_ID, -1L)
         val invite = intent.sharedInviteLink()
+        val sharedGroupId = intent.getStringExtra(EXTRA_OPEN_SHARED_GROUP)
         widgetDestination = when {
             invite != null -> com.pennywiseai.tracker.navigation.SharedJoin(invite.server, invite.token)
+            sharedGroupId != null -> com.pennywiseai.tracker.navigation.SharedGroupDetail(sharedGroupId)
             goalId > 0 -> com.pennywiseai.tracker.navigation.GoalDetail(goalId)
             intent.getBooleanExtra(EXTRA_OPEN_UNRECOGNIZED, false) ->
                 com.pennywiseai.tracker.navigation.UnrecognizedSms

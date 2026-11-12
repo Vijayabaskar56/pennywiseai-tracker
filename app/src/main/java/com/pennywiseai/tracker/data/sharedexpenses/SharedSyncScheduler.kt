@@ -14,18 +14,21 @@ import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Schedules [SharedExpensesSyncWorker]: every 6 hours while the feature is in use, and once after each local change. */
+/** Schedules [SharedExpensesSyncWorker]: every hour while the feature is in use, and once after each local change. */
 @Singleton
 class SharedSyncScheduler @Inject constructor(@ApplicationContext context: Context) {
     private val work by lazy { WorkManager.getInstance(context) }
     private val constraints = Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
 
-    /** Starts the periodic sync; call only once a server address and a registration exist. Repeated calls keep the schedule. */
+    /**
+     * Starts the periodic sync; call only once a server address and a registration exist. Repeated calls keep
+     * the schedule's timing. Hourly, because this is also how the phone learns of other members' changes.
+     */
     fun ensurePeriodic() {
         work.enqueueUniquePeriodicWork(
             PERIODIC,
-            ExistingPeriodicWorkPolicy.KEEP,
-            PeriodicWorkRequestBuilder<SharedExpensesSyncWorker>(6, TimeUnit.HOURS).setConstraints(constraints).build(),
+            ExistingPeriodicWorkPolicy.UPDATE,
+            PeriodicWorkRequestBuilder<SharedExpensesSyncWorker>(1, TimeUnit.HOURS).setConstraints(constraints).build(),
         )
     }
 

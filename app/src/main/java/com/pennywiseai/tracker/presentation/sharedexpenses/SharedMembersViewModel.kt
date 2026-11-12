@@ -74,7 +74,9 @@ class SharedMembersViewModel @Inject constructor(
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SharedMembersUiState())
 
-    init {
+    /** The screen came to the front: fetch the group's changes (a seat may have been joined) and its invites. */
+    fun refresh() {
+        if (!repository.syncState.value.syncing) viewModelScope.launch { repository.syncNow() }
         loadInvites()
     }
 

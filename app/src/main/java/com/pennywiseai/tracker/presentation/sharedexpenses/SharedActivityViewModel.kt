@@ -4,13 +4,14 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.pennywiseai.tracker.R
+import com.pennywiseai.tracker.core.ResText
+import com.pennywiseai.tracker.data.sharedexpenses.SharedActivityLines
 import com.pennywiseai.tracker.data.sharedexpenses.SharedExpensesRepository
 import com.pennywiseai.tracker.data.sharedexpenses.SharedResult
+import com.pennywiseai.tracker.data.sharedexpenses.TypedText
 import com.pennywiseai.tracker.domain.sharedexpenses.ActivityType
-import com.pennywiseai.tracker.domain.sharedexpenses.RecurringInterval
 import com.pennywiseai.tracker.domain.sharedexpenses.SharedActivity
 import com.pennywiseai.tracker.ui.UiText
-import com.pennywiseai.tracker.utils.CurrencyFormatter
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -80,94 +81,17 @@ fun activityRows(activities: List<SharedActivity>, groups: Map<String, ActivityG
 }
 
 /** Who did it: "You", a member's name, or "Recurring" when the server acted (a recurring expense came due). */
-fun actorText(actorId: String?, myMemberId: String?, names: Map<String, String>): UiText = when {
-    actorId == null -> UiText.Res(R.string.shared_actor_recurring)
-    actorId == myMemberId -> UiText.Res(R.string.shared_person_you)
-    else -> names[actorId]?.let { UiText.Plain(it) } ?: UiText.Res(R.string.shared_person_unknown)
-}
+fun actorText(actorId: String?, myMemberId: String?, names: Map<String, String>): UiText =
+    SharedActivityLines.actor(actorId, myMemberId, names).toUiText()
 
-/** A member mid-sentence: "you", their name now, else [fallback] (the name the row recorded). */
-private fun memberText(memberId: String?, myMemberId: String?, names: Map<String, String>, fallback: String? = null): UiText = when {
-    memberId != null && memberId == myMemberId -> UiText.Res(R.string.shared_person_you_lower)
-    else -> (fallback ?: memberId?.let(names::get))?.let { UiText.Plain(it) } ?: UiText.Res(R.string.shared_person_unknown)
-}
+/** One feed line (SharedActivityLines.line), such as "Member A added Groceries, ₹1,240.00". */
+fun activityText(activity: SharedActivity, myMemberId: String?, names: Map<String, String>): UiText =
+    SharedActivityLines.line(activity, myMemberId, names).toUiText()
 
-/** The summary's amount in its currency ("₹1,240.00"), or null when it has none. */
-private fun summaryMoney(summary: Map<String, String>): String? {
-    val amount = summary["amount"]?.toBigDecimalOrNull() ?: return null
-    val currency = summary["currency"]?.takeIf { it.isNotBlank() } ?: return null
-    return CurrencyFormatter.formatCurrency(amount, currency)
-}
-
-/** "Groceries, ₹1,240.00", or just the description when the amount is missing. */
-private fun subject(summary: Map<String, String>): UiText {
-    val description = summary["description"]?.let { UiText.Plain(it) } ?: UiText.Res(R.string.shared_activity_an_expense)
-    val money = summaryMoney(summary) ?: return description
-    return UiText.Res(R.string.shared_activity_subject_amount, listOf(description, money))
-}
-
-private fun intervalText(summary: Map<String, String>): UiText =
-    when (summary["interval"]?.let { raw -> RecurringInterval.entries.firstOrNull { it.name == raw } }) {
-        RecurringInterval.WEEKLY -> UiText.Res(R.string.shared_activity_interval_weekly)
-        RecurringInterval.MONTHLY -> UiText.Res(R.string.shared_activity_interval_monthly)
-        RecurringInterval.YEARLY -> UiText.Res(R.string.shared_activity_interval_yearly)
-        null -> UiText.Res(R.string.shared_activity_interval_unknown)
-    }
-
-/**
- * One feed line from [activity]'s type and summary, such as "Member A added
- * Groceries, ₹1,240.00". The actor reads "You" for this phone's seat and
- * "Recurring" when the server acted. Every [ActivityType] has its line.
- */
-fun activityText(activity: SharedActivity, myMemberId: String?, names: Map<String, String>): UiText {
-    val s = activity.summary
-    val actor = actorText(activity.actorMemberId, myMemberId, names)
-    fun res(id: Int, vararg args: Any) = UiText.Res(id, listOf(actor) + args)
-    return when (activity.type) {
-        ActivityType.GROUP_CREATED -> res(R.string.shared_activity_group_created, s["name"].orEmpty())
-        ActivityType.GROUP_DELETED -> res(R.string.shared_activity_group_deleted, s["name"].orEmpty())
-        ActivityType.GROUP_RENAMED -> s["oldName"]?.let { old -> res(R.string.shared_activity_group_renamed, old, s["name"].orEmpty()) }
-            ?: res(R.string.shared_activity_group_renamed_to, s["name"].orEmpty())
-        ActivityType.GROUP_SETTINGS_CHANGED -> {
-            val currency = s["defaultCurrency"]
-            val simplify = s["simplifyDebts"]?.toBooleanStrictOrNull()
-            when {
-                currency != null && simplify == null -> res(R.string.shared_activity_settings_currency, currency)
-                currency == null && simplify == true -> res(R.string.shared_activity_settings_simplify_on)
-                currency == null && simplify == false -> res(R.string.shared_activity_settings_simplify_off)
-                else -> res(R.string.shared_activity_settings_changed)
-            }
-        }
-        ActivityType.MEMBER_ADDED -> res(R.string.shared_activity_member_added, memberText(activity.entityId, myMemberId, names, s["memberName"]))
-        ActivityType.MEMBER_JOINED -> {
-            // The joiner is the actor; before this phone knows their seat, the recorded name stands in.
-            val joiner = if (activity.actorMemberId == myMemberId || activity.actorMemberId in names) actor else s["memberName"]?.let { UiText.Plain(it) } ?: actor
-            UiText.Res(R.string.shared_activity_member_joined, listOf(joiner))
-        }
-        ActivityType.MEMBER_REMOVED -> if (activity.actorMemberId != null && activity.actorMemberId == activity.entityId) {
-            res(R.string.shared_activity_member_left)
-        } else {
-            res(R.string.shared_activity_member_removed, memberText(activity.entityId, myMemberId, names, s["memberName"]))
-        }
-        ActivityType.MEMBER_RENAMED -> s["oldName"]?.let { old -> res(R.string.shared_activity_member_renamed, old, s["memberName"].orEmpty()) }
-            ?: res(R.string.shared_activity_member_renamed_to, s["memberName"].orEmpty())
-        ActivityType.EXPENSE_ADDED -> res(R.string.shared_activity_expense_added, subject(s))
-        ActivityType.EXPENSE_EDITED -> res(R.string.shared_activity_expense_edited, subject(s))
-        ActivityType.EXPENSE_DELETED -> res(R.string.shared_activity_expense_deleted, subject(s))
-        ActivityType.EXPENSE_RESTORED -> res(R.string.shared_activity_expense_restored, subject(s))
-        ActivityType.SETTLEMENT_ADDED, ActivityType.SETTLEMENT_EDITED, ActivityType.SETTLEMENT_DELETED -> {
-            val id = when (activity.type) {
-                ActivityType.SETTLEMENT_ADDED -> R.string.shared_activity_settlement_added
-                ActivityType.SETTLEMENT_EDITED -> R.string.shared_activity_settlement_edited
-                else -> R.string.shared_activity_settlement_deleted
-            }
-            val money = summaryMoney(s) ?: listOfNotNull(s["amount"], s["currency"]).joinToString(" ")
-            res(id, memberText(s["fromMemberId"], myMemberId, names), memberText(s["toMemberId"], myMemberId, names), money)
-        }
-        ActivityType.RECURRING_ADDED -> res(R.string.shared_activity_recurring_added, subject(s), intervalText(s))
-        ActivityType.RECURRING_EDITED -> res(R.string.shared_activity_recurring_edited, subject(s), intervalText(s))
-        ActivityType.RECURRING_STOPPED -> res(R.string.shared_activity_recurring_stopped, subject(s), intervalText(s))
-    }
+private fun Any.toUiText(): UiText = when (this) {
+    is ResText -> UiText.Res(id, args.map { if (it is ResText || it is TypedText) it.toUiText() else it })
+    is TypedText -> UiText.Plain(value)
+    else -> UiText.Plain(toString())
 }
 
 // ── ViewModel ──
