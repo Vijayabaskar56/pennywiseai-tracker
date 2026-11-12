@@ -3,6 +3,7 @@ package com.pennywiseai.tracker.presentation.navigation
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class BottomNavItemTest {
@@ -12,7 +13,7 @@ class BottomNavItemTest {
     @Test
     fun `nothing hidden by default shows every tab in order`() {
         assertEquals(
-            listOf(BottomNavItem.Home, BottomNavItem.Transactions, BottomNavItem.Analytics, BottomNavItem.Chat),
+            listOf(BottomNavItem.Home, BottomNavItem.Transactions, BottomNavItem.Shared, BottomNavItem.Analytics, BottomNavItem.Chat),
             BottomNavItem.visible(emptySet())
         )
     }
@@ -25,9 +26,16 @@ class BottomNavItemTest {
     @Test
     fun `hidden tabs drop out and the rest keep their order`() {
         assertEquals(
-            listOf(BottomNavItem.Home, BottomNavItem.Analytics),
+            listOf(BottomNavItem.Home, BottomNavItem.Shared, BottomNavItem.Analytics),
             BottomNavItem.visible(setOf("transactions", "chat"))
         )
+    }
+
+    @Test
+    fun `shared can be hidden like the other tabs`() {
+        assertTrue(BottomNavItem.Shared in BottomNavItem.hideable)
+        assertEquals(listOf(BottomNavItem.Home, BottomNavItem.Transactions), BottomNavItem.visible(setOf("shared", "analytics", "chat")))
+        assertEquals("home", BottomNavItem.fallbackFor("shared", setOf("shared")))
     }
 
     @Test

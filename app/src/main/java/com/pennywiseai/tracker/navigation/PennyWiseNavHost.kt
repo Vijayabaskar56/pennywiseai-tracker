@@ -173,6 +173,17 @@ fun PennyWiseNavHost(
                         }
                     }
 
+                    // Shared expenses screens above the tabs: an Invite link opened from
+                    // outside the app (MainActivity) lands on SharedJoin here.
+                    sharedExpensesEntries(
+                        SharedNavigator(
+                            open = { backStack.navigate(it) },
+                            back = { backStack.pop(it) },
+                            replace = { from, to -> backStack.replaceLast(to) { it == from } },
+                        ),
+                        withTabRoot = false,
+                    )
+
                     entry<BackgroundAccess> { key ->
                         com.pennywiseai.tracker.presentation.settings.BackgroundAccessScreen(
                             onNavigateBack = { backStack.pop(key) }

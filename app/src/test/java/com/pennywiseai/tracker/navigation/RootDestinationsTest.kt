@@ -19,10 +19,13 @@ class RootDestinationsTest {
         val activity = File(src, "MainActivity.kt").readText()
         val handler = activity.substringAfter("fun handleWidgetIntent(").substringBefore("\n    }\n")
         val opened = Regex("""navigation\.(\w+)""").findAll(handler).map { it.groupValues[1] }.toSet()
-        assertEquals(setOf("GoalDetail", "UnrecognizedSms", "Review", "BudgetGroups"), opened)
+        assertEquals(setOf("SharedJoin", "GoalDetail", "UnrecognizedSms", "Review", "BudgetGroups"), opened)
 
         val host = File(src, "navigation/PennyWiseNavHost.kt").readText()
-        val registered = Regex("""entry<(\w+)>""").findAll(host).map { it.groupValues[1] }.toSet()
+        // The host also registers the Shared expenses screens through sharedExpensesEntries(…).
+        assertTrue("PennyWiseNavHost no longer registers the Shared screens", "sharedExpensesEntries(" in host)
+        val shared = File(src, "navigation/SharedExpensesEntries.kt").readText()
+        val registered = Regex("""entry<(\w+)>""").findAll(host + shared).map { it.groupValues[1] }.toSet()
         assertTrue("Not on the root host: ${opened - registered}", registered.containsAll(opened))
     }
 }

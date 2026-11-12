@@ -1,13 +1,14 @@
 package com.pennywiseai.tracker.presentation.navigation
 
-import com.pennywiseai.tracker.R
 import androidx.annotation.StringRes
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Analytics
+import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.ui.graphics.vector.ImageVector
+import com.pennywiseai.tracker.R
 
 sealed class BottomNavItem(
     val route: String,
@@ -26,12 +27,19 @@ sealed class BottomNavItem(
         icon = Icons.AutoMirrored.Filled.ReceiptLong
     )
 
+    /** Shared groups (docs/shared-expenses.md). */
+    data object Shared : BottomNavItem(
+        route = "shared",
+        titleRes = R.string.nav_shared,
+        icon = Icons.Default.Groups
+    )
+
     data object Analytics : BottomNavItem(
         route = "analytics",
         titleRes = R.string.nav_analytics,
         icon = Icons.Default.Analytics
     )
-    
+
     data object Chat : BottomNavItem(
         route = "chat",
         titleRes = R.string.nav_chat,
@@ -42,7 +50,7 @@ sealed class BottomNavItem(
         // Getters, not vals: a companion val naming the subclasses can be read
         // before they're initialised and come back null.
         /** Every tab, in bar order. */
-        val all: List<BottomNavItem> get() = listOf(Home, Transactions, Analytics, Chat)
+        val all: List<BottomNavItem> get() = listOf(Home, Transactions, Shared, Analytics, Chat)
 
         /** Tabs the user can hide from the bar (#912). Home always stays. */
         val hideable: List<BottomNavItem> get() = all - Home

@@ -196,3 +196,52 @@ data object AddAccount : NavKey
 
 @Serializable
 data class BalanceHistory(val bankName: String, val accountLast4: String) : NavKey
+
+// Shared expenses (docs/shared-expenses.md). SharedGroups is the Shared tab's root;
+// the rest open inside that tab, and on the root stack for an outside Invite link.
+@Serializable
+data object SharedGroups : NavKey
+
+@Serializable
+data class SharedGroupDetail(val groupId: String) : NavKey
+
+@Serializable
+data class SharedMembers(val groupId: String) : NavKey
+
+@Serializable
+data class SharedGroupSettings(val groupId: String) : NavKey
+
+@Serializable
+data object SharedSettings : NavKey
+
+/** An Invite link: `pennywise://shared/join?server=…&token=…` or a pasted `https://<server>/join/<token>`. */
+@Serializable
+data class SharedJoin(val server: String, val token: String) : NavKey
+
+/** New expense ([expenseId] null), optionally filled from a bank transaction, or edit one. */
+@Serializable
+data class SharedExpenseEditor(
+    val groupId: String,
+    val expenseId: String? = null,
+    val fromTransactionId: Long? = null,
+) : NavKey
+
+@Serializable
+data class SharedExpenseDetail(val groupId: String, val expenseId: String) : NavKey
+
+/** Record a Settlement; any of the pair, amount (a decimal string) and currency may be prefilled. */
+@Serializable
+data class SharedSettleUp(
+    val groupId: String,
+    val fromMemberId: String? = null,
+    val toMemberId: String? = null,
+    val amount: String? = null,
+    val currency: String? = null,
+) : NavKey
+
+/** One group's activity feed, or every group's when [groupId] is null. */
+@Serializable
+data class SharedActivityFeed(val groupId: String? = null) : NavKey
+
+@Serializable
+data class SharedRecurringList(val groupId: String) : NavKey

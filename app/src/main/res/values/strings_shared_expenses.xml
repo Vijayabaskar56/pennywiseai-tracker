@@ -1,0 +1,240 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Shared expenses (docs/shared-expenses.md): the Shared tab and its screens.
+     Terms as in the design doc: Shared group, member, settle up. -->
+<resources>
+    <string name="nav_shared">Shared</string>
+
+    <!-- Common -->
+    <string name="shared_back">Back</string>
+    <string name="shared_cancel">Cancel</string>
+    <string name="shared_close">Close</string>
+    <string name="shared_continue">Continue</string>
+    <string name="shared_save">Save</string>
+    <string name="shared_add">Add</string>
+    <string name="shared_create">Create</string>
+    <string name="shared_retry">Retry</string>
+    <string name="shared_share">Share</string>
+    <string name="shared_copy">Copy</string>
+    <string name="shared_done">Done</string>
+    <string name="shared_more">More options</string>
+    <string name="shared_placeholder_body">This screen is coming in the next update.</string>
+
+    <!-- People and balances -->
+    <string name="shared_person_you">You</string>
+    <string name="shared_person_you_lower">you</string>
+    <string name="shared_person_unknown">Unknown member</string>
+    <string name="shared_balance_owed">You are owed %1$s</string>
+    <string name="shared_balance_owe">You owe %1$s</string>
+    <string name="shared_balance_settled">Settled up</string>
+    <plurals name="shared_member_count">
+        <item quantity="one">%1$d member</item>
+        <item quantity="other">%1$d members</item>
+    </plurals>
+
+    <!-- Sync status -->
+    <string name="shared_banner_offline">You\'re offline. Showing what\'s on this phone.</string>
+    <plurals name="shared_banner_problems">
+        <item quantity="one">%1$d change couldn\'t be sent</item>
+        <item quantity="other">%1$d changes couldn\'t be sent</item>
+    </plurals>
+    <string name="shared_mark_pending">Not synced yet</string>
+    <string name="shared_mark_problem">This change needs attention</string>
+
+    <!-- Shared tab -->
+    <string name="shared_tab_title">Shared groups</string>
+    <string name="shared_setup_title">Share expenses with others</string>
+    <string name="shared_setup_body">Shared groups keep one ledger with people who also use PennyWise. Enter the address of your Shared expenses server to start.</string>
+    <string name="shared_server_label">Server address</string>
+    <string name="shared_server_placeholder">https://shared.example.com</string>
+    <string name="shared_server_hint">Must start with https://</string>
+    <string name="shared_summary_owe">You owe</string>
+    <string name="shared_summary_owed">You are owed</string>
+    <string name="shared_summary_nothing">Nothing</string>
+    <string name="shared_empty_title">No shared groups yet</string>
+    <string name="shared_empty_body">Create a group for a flat or a trip, or join one with an invite link.</string>
+    <string name="shared_new_group">New group</string>
+    <string name="shared_join_with_link">Join with a link</string>
+    <string name="shared_group_name_label">Group name</string>
+    <string name="shared_group_name_placeholder">Flat</string>
+    <string name="shared_default_currency">Default currency</string>
+    <string name="shared_currency_title">Currency</string>
+    <string name="shared_currency_option">%1$s (%2$s)</string>
+    <string name="shared_name_dialog_title">Your name</string>
+    <string name="shared_name_dialog_body">Other members see this name in the group.</string>
+    <string name="shared_name_label">Name</string>
+    <string name="shared_join_dialog_title">Join a group</string>
+    <string name="shared_join_dialog_body">Paste the invite link someone sent you.</string>
+    <string name="shared_join_link_label">Invite link</string>
+    <string name="shared_join_link_invalid">That isn\'t an invite link.</string>
+
+    <!-- Group detail -->
+    <string name="shared_group_gone">This group is no longer on this phone.</string>
+    <string name="shared_my_balance">Your balance</string>
+    <string name="shared_who_owes_whom">Who owes whom</string>
+    <string name="shared_all_settled">Everyone is settled up.</string>
+    <string name="shared_debt_owes">%1$s owes %2$s %3$s</string>
+    <string name="shared_debt_you_owe">You owe %1$s %2$s</string>
+    <string name="shared_debt_owes_you">%1$s owes you %2$s</string>
+    <string name="shared_ledger_title">Expenses and payments</string>
+    <string name="shared_ledger_empty">No expenses yet. Add the first one.</string>
+    <string name="shared_paid_by_you">You paid %1$s</string>
+    <string name="shared_paid_by_one">%1$s paid %2$s</string>
+    <plurals name="shared_paid_by_several">
+        <item quantity="one">%1$d person paid %2$s</item>
+        <item quantity="other">%1$d people paid %2$s</item>
+    </plurals>
+    <string name="shared_part_lent">you lent %1$s</string>
+    <string name="shared_part_borrowed">you borrowed %1$s</string>
+    <string name="shared_part_even">you paid your share</string>
+    <string name="shared_part_not_involved">not involved</string>
+    <string name="shared_settlement_row">%1$s paid %2$s</string>
+    <string name="shared_add_expense">Add expense</string>
+
+    <!-- Screens a later update fills in -->
+    <string name="shared_expense_editor_title">Add expense</string>
+    <string name="shared_expense_detail_title">Expense</string>
+    <string name="shared_settle_up_title">Settle up</string>
+    <string name="shared_activity_title">Activity</string>
+    <string name="shared_recurring_title">Recurring expenses</string>
+
+    <!-- Members -->
+    <string name="shared_members_title">Members</string>
+    <string name="shared_members_me">%1$s (you)</string>
+    <string name="shared_seat_joined">Joined</string>
+    <string name="shared_seat_not_joined">Not joined yet</string>
+    <string name="shared_seat_removed">Removed</string>
+    <string name="shared_members_add">Add a person</string>
+    <string name="shared_members_add_body">You can add expenses for them now. Invite them later to hand over their place.</string>
+    <string name="shared_members_added">Added %1$s</string>
+    <string name="shared_members_invite">Invite</string>
+    <string name="shared_members_invite_new">Invite someone new</string>
+    <string name="shared_members_actions">Actions for %1$s</string>
+    <string name="shared_members_rename">Rename</string>
+    <string name="shared_members_remove">Remove</string>
+    <string name="shared_members_remove_title">Remove %1$s?</string>
+    <string name="shared_members_remove_body">They stay on past expenses. A member can be removed only once all their balances are zero.</string>
+    <string name="shared_members_removed">Member removed</string>
+    <string name="shared_invites_title">Active invite links</string>
+    <string name="shared_invites_none">No active invite links.</string>
+    <string name="shared_invite_open">Open invite</string>
+    <string name="shared_invite_for_seat">For %1$s</string>
+    <string name="shared_invite_for_unknown_seat">For a member</string>
+    <string name="shared_invite_expires">Expires %1$s</string>
+    <plurals name="shared_invite_expires_uses">
+        <item quantity="one">Expires %1$s · used %2$d time</item>
+        <item quantity="other">Expires %1$s · used %2$d times</item>
+    </plurals>
+    <string name="shared_invite_revoke">Revoke invite link</string>
+    <string name="shared_invite_revoked">Invite link revoked</string>
+    <string name="shared_invite_link_title">Invite link</string>
+    <string name="shared_invite_link_body_seat">Whoever opens this link joins as %1$s, with their expenses so far. It works once and expires in 7 days.</string>
+    <string name="shared_invite_link_body_open">Anyone with this link can join the group. It expires in 7 days.</string>
+    <string name="shared_invite_copied">Link copied</string>
+    <string name="shared_invite_share_chooser">Share invite link</string>
+    <string name="shared_invite_share_text">Join %1$s on PennyWise: %2$s</string>
+
+    <!-- Group settings -->
+    <string name="shared_group_settings_title">Group settings</string>
+    <string name="shared_group_settings_section">Group</string>
+    <string name="shared_rename_group">Rename group</string>
+    <string name="shared_simplify_title">Simplify debts</string>
+    <string name="shared_simplify_body">Combine debts so fewer payments settle everyone up.</string>
+    <string name="shared_group_leave_section">Leave or delete</string>
+    <string name="shared_leave_group">Leave group</string>
+    <string name="shared_leave_body">The group leaves this phone. Others keep it.</string>
+    <string name="shared_leave_blocked">Settle up first. You can leave once your balance is zero.</string>
+    <string name="shared_leave_balance_label">Your balance</string>
+    <string name="shared_leave_title">Leave %1$s?</string>
+    <string name="shared_leave_confirm_body">The group and its expenses leave this phone. Someone can invite you back later.</string>
+    <string name="shared_delete_group">Delete group</string>
+    <string name="shared_delete_group_body">Deletes it for every member.</string>
+    <string name="shared_delete_title">Delete %1$s?</string>
+    <string name="shared_delete_confirm_body">The group and all its expenses are deleted for every member. This can\'t be undone.</string>
+
+    <!-- Shared settings -->
+    <string name="shared_settings_title">Shared settings</string>
+    <string name="shared_settings_you">You</string>
+    <string name="shared_settings_name_hint">Other members see this name.</string>
+    <string name="shared_settings_name_saved">Name saved</string>
+    <string name="shared_settings_server">Server</string>
+    <string name="shared_settings_server_hint">Changing it removes this phone\'s copy of its groups.</string>
+    <string name="shared_settings_server_same">Already using that server</string>
+    <string name="shared_settings_server_saved">Server changed</string>
+    <string name="shared_settings_server_confirm_title">Switch server?</string>
+    <string name="shared_settings_server_confirm_body">Switching to %1$s removes this phone\'s copy of its groups, including changes not sent yet. The groups stay on the old server.</string>
+    <string name="shared_settings_server_confirm">Switch</string>
+    <string name="shared_settings_sync">Sync</string>
+    <string name="shared_settings_sync_now">Sync now</string>
+    <string name="shared_settings_syncing">Syncing…</string>
+    <string name="shared_settings_last_sync">Last synced %1$s</string>
+    <string name="shared_settings_sync_failed">Last sync failed: %1$s</string>
+    <string name="shared_settings_never_synced">Not synced yet</string>
+
+    <!-- Join -->
+    <string name="shared_join_title">Join a group</string>
+    <string name="shared_join_open_body">You\'re invited to join this group.</string>
+    <string name="shared_join_as_seat">You\'re invited to join as %1$s, with their expenses so far.</string>
+    <string name="shared_join_already_member">You\'re already in this group.</string>
+    <string name="shared_join_already_member_other_seat">You\'re already in this group as another member.</string>
+    <string name="shared_join_button">Join</string>
+    <string name="shared_join_joining">Joining…</string>
+    <string name="shared_join_open_group">Open group</string>
+    <string name="shared_join_other_server_title">Invite for another server</string>
+    <string name="shared_join_other_server_body">This invite is for %1$s, not the server this phone uses.</string>
+    <string name="shared_join_other_server_body_groups">This invite is for %1$s. Switching to it removes this phone\'s copy of its groups, including changes not sent yet.</string>
+    <string name="shared_join_use_server">Use that server</string>
+    <string name="shared_join_failed_title">Can\'t use this invite</string>
+    <string name="shared_join_failed_retry_title">Couldn\'t load the invite</string>
+    <string name="shared_join_server_note">Server: %1$s</string>
+
+    <!-- Errors (SharedErrorText.kt maps every SharedError here) -->
+    <string name="shared_error_no_server">Set a server address first.</string>
+    <string name="shared_error_invalid_server">Enter an https:// address (http:// only for localhost).</string>
+    <string name="shared_error_other_server">This invite is for another server (%1$s).</string>
+    <string name="shared_error_name_required">Set your name first.</string>
+    <string name="shared_error_not_on_phone">That\'s no longer on this phone.</string>
+    <string name="shared_error_deleted_elsewhere">Someone deleted this. Use their version, or restore it first.</string>
+    <string name="shared_error_network">Can\'t reach the server. Check your connection and try again.</string>
+    <string name="shared_error_unauthorized">The server didn\'t accept this phone. Restore a backup or ask a member for a new invite.</string>
+    <string name="shared_error_forbidden">You\'re no longer a member of this group.</string>
+    <string name="shared_error_not_found">That no longer exists on the server.</string>
+    <string name="shared_error_conflict">Someone changed this first. Refresh and try again.</string>
+    <string name="shared_error_already_member">You\'re already in this group.</string>
+    <string name="shared_error_invite_gone">This invite has expired, was revoked or was already used. Ask for a new one.</string>
+    <string name="shared_error_invalid">The server refused this change.</string>
+    <string name="shared_error_balance_not_zero">Settle up first. Balances must be zero.</string>
+    <string name="shared_error_limit">Limit reached: up to 50 members per group and 50 groups.</string>
+    <string name="shared_error_rate_limited">Too many tries. Wait a minute and try again.</string>
+    <string name="shared_error_server_problem">The server had a problem. Try again.</string>
+    <string name="shared_error_unknown">Something went wrong. Try again.</string>
+
+    <!-- Input checks before sending -->
+    <string name="shared_invalid_description_blank">Enter a description.</string>
+    <string name="shared_invalid_description_long">Description is too long (200 characters at most).</string>
+    <string name="shared_invalid_category_long">Category is too long (60 characters at most).</string>
+    <string name="shared_invalid_notes_long">Notes are too long (1,000 characters at most).</string>
+    <string name="shared_invalid_currency">Pick a valid currency.</string>
+    <string name="shared_invalid_amount_positive">Enter an amount above zero.</string>
+    <string name="shared_invalid_amount_decimals">Too many decimal places for this currency.</string>
+    <string name="shared_invalid_amount_large">That amount is too large.</string>
+    <string name="shared_invalid_no_payers">Choose who paid.</string>
+    <string name="shared_invalid_payer_positive">Each payer\'s amount must be above zero.</string>
+    <string name="shared_invalid_payer_decimals">A payer\'s amount has too many decimal places.</string>
+    <string name="shared_invalid_payer_duplicate">A member is listed as payer twice.</string>
+    <string name="shared_invalid_payers_sum">What the payers paid must add up to the amount.</string>
+    <string name="shared_invalid_no_shares">Choose who shares this expense.</string>
+    <string name="shared_invalid_share_positive">Each share must be above zero.</string>
+    <string name="shared_invalid_share_decimals">A share has too many decimal places.</string>
+    <string name="shared_invalid_share_duplicate">A member has two shares.</string>
+    <string name="shared_invalid_shares_sum">The shares must add up to the amount.</string>
+    <string name="shared_invalid_percent">Enter a percent above zero for each member.</string>
+    <string name="shared_invalid_percent_total">Percents must add up to 100.</string>
+    <string name="shared_invalid_share_weight">Shares must be whole numbers above zero.</string>
+    <string name="shared_invalid_weight_not_allowed">This split doesn\'t take shares or percents.</string>
+    <string name="shared_invalid_unknown_member">One of the members isn\'t in this group.</string>
+    <string name="shared_invalid_settlement_same">Choose two different members.</string>
+    <string name="shared_invalid_group_name_blank">Enter a group name.</string>
+    <string name="shared_invalid_group_name_long">Group name is too long (60 characters at most).</string>
+    <string name="shared_invalid_name_blank">Enter a name.</string>
+    <string name="shared_invalid_name_long">Name is too long (40 characters at most).</string>
+</resources>

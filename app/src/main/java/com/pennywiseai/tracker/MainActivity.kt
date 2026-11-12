@@ -1,6 +1,5 @@
 package com.pennywiseai.tracker
 
-import com.pennywiseai.tracker.utils.withLatinDigits
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -19,7 +18,9 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.lifecycleScope
 import com.pennywiseai.tracker.data.repository.AppLockRepository
+import com.pennywiseai.tracker.data.sharedexpenses.SharedInviteLink
 import com.pennywiseai.tracker.receiver.SmsBroadcastReceiver
+import com.pennywiseai.tracker.utils.withLatinDigits
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
@@ -61,6 +62,9 @@ class MainActivity : FragmentActivity() {
          */
         const val DEEP_LINK_SCHEME = "pennywise"
         const val DEEP_LINK_HOST_ADD = "add"
+
+        /** `pennywise://shared/join?…`: a Shared expenses Invite link (see the manifest). */
+        private const val DEEP_LINK_HOST_SHARED = "shared"
 
         fun addDeepLink(): Uri = "$DEEP_LINK_SCHEME://$DEEP_LINK_HOST_ADD".toUri()
 
@@ -173,7 +177,9 @@ class MainActivity : FragmentActivity() {
     private fun handleWidgetIntent(intent: Intent?) {
         intent ?: return
         val goalId = intent.getLongExtra(EXTRA_OPEN_GOAL_ID, -1L)
+        val invite = intent.sharedInviteLink()
         widgetDestination = when {
+            invite != null -> com.pennywiseai.tracker.navigation.SharedJoin(invite.server, invite.token)
             goalId > 0 -> com.pennywiseai.tracker.navigation.GoalDetail(goalId)
             intent.getBooleanExtra(EXTRA_OPEN_UNRECOGNIZED, false) ->
                 com.pennywiseai.tracker.navigation.UnrecognizedSms
@@ -236,6 +242,13 @@ class MainActivity : FragmentActivity() {
             .setIntent(Intent(Intent.ACTION_VIEW, addDeepLink(), this, MainActivity::class.java))
             .build()
         ShortcutManagerCompat.setDynamicShortcuts(this, listOf(shortcut))
+    }
+
+    /** `pennywise://shared/join?server=…&token=…`, a Shared expenses Invite link; null for anything else or a malformed link. */
+    private fun Intent.sharedInviteLink(): SharedInviteLink? {
+        val data = data ?: return null
+        if (action != Intent.ACTION_VIEW || data.scheme != DEEP_LINK_SCHEME || data.host != DEEP_LINK_HOST_SHARED) return null
+        return SharedInviteLink.parse(data.toString())
     }
 
     private fun Intent?.isAddDeepLink(): Boolean {

@@ -88,6 +88,16 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="pennywise" android:host="add" />
             </intent-filter>
+
+            <!-- pennywise://shared/join?server=…&token=… — the "Open in PennyWise"
+                 button on a Shared expenses Invite link's page. Opens the Join
+                 screen, which shows the group and asks before joining. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="pennywise" android:host="shared" android:path="/join" />
+            </intent-filter>
         </activity>
 
         <!-- Translucent picker launched from the "More categories…" txn-alert
