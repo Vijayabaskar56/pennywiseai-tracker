@@ -56,6 +56,40 @@ _Avoid_: Failed, expired, overdue
 A Goal the user has put away; it no longer shows with the others.
 _Avoid_: Deleted, closed
 
+## Shared expenses
+
+**Shared group**:
+A set of members who share one ledger, such as a flat or a trip. Never "group" alone: a Transaction group is a local label for a set of transactions.
+_Avoid_: Group, circle, household
+
+**Member**:
+One person's seat in a Shared group. A member can exist before the person joins.
+_Avoid_: User, participant, friend
+
+**Shared expense**:
+One cost in a Shared group: an amount in one currency, who paid, and each member's share.
+_Avoid_: Bill, split, group transaction
+
+**Payer**:
+A member who paid some or all of a Shared expense.
+_Avoid_: Owner, creditor
+
+**Share**:
+The part of a Shared expense one member is responsible for.
+_Avoid_: Split (as a noun), portion, cut
+
+**Settlement**:
+A payment from one member to another that reduces what they owe. It is not an expense and never counts as spending.
+_Avoid_: Repayment, transfer, payback
+
+**Group balance**:
+What a member has paid minus their shares, per currency. Positive means the Shared group owes them.
+_Avoid_: Total, net, debt
+
+**Invite link**:
+A link that lets a phone join a Shared group, optionally taking over an existing member's seat.
+_Avoid_: Join code, share link
+
 ## AI access
 
 **AI connection**:
