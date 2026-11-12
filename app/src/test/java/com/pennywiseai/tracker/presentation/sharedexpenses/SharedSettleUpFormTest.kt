@@ -47,6 +47,23 @@ class SharedSettleUpFormTest {
         assertFalse(f.amountEdited)
     }
 
+    @Test fun `only a receiver from the key picks who owes them most as the payer`() {
+        // A payment I received, opened from a bank transaction.
+        val f = defaults(debts(debt(a, me, "50"), debt(b, me, "200")), to = me, amount = "1000", currency = "INR")
+        assertEquals(b, f.fromId)
+        assertEquals(me, f.toId)
+        // Nobody owes me: still someone else, never me paying myself.
+        val none = defaults(emptyMap(), to = me)
+        assertEquals(me, none.toId)
+        assertTrue(none.fromId != null && none.fromId != me)
+    }
+
+    @Test fun `only a payer from the key picks who they owe most as the receiver`() {
+        val f = defaults(debts(debt(me, a, "50"), debt(me, b, "200")), from = me, amount = "1000", currency = "INR")
+        assertEquals(me, f.fromId)
+        assertEquals(b, f.toId)
+    }
+
     @Test fun `without a key I pay the member I owe most`() {
         val f = defaults(debts(debt(me, a, "100"), debt(me, b, "300"), debt(a, me, "999")))
         assertEquals(me, f.fromId)

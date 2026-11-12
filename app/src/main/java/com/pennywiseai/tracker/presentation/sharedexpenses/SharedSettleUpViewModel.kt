@@ -52,7 +52,8 @@ fun debtBetween(debts: Map<String, List<Debt>>, from: String?, to: String?, curr
 
 /**
  * The form a new Settlement opens with. With a pair from the navigation key, that
- * pair; otherwise me paying the member I owe most, else the member who owes me
+ * pair; with one side only (opened from a bank transaction), the other side is
+ * the member that side owes or is owed most, else another member; otherwise me paying the member I owe most, else the member who owes me
  * most paying me, else me paying the first other member. Debts in the group's
  * [defaultCurrency] come first, then the largest. The amount is the key's, else
  * the debt between the two in that currency, else blank.
@@ -79,8 +80,19 @@ fun settleUpDefaults(
         else -> all.filter { it.fromMemberId == myMemberId && it.toMemberId in ids }.minWithOrNull(preference)
             ?: all.filter { it.toMemberId == myMemberId && it.fromMemberId in ids }.minWithOrNull(preference)
     }
-    val from = keyFrom?.takeIf { it in ids } ?: pick?.fromMemberId ?: myMemberId?.takeIf { it in ids }
-    val to = keyTo?.takeIf { it in ids } ?: pick?.toMemberId ?: (if (from == firstOther) myMemberId else firstOther)
+    val givenFrom = keyFrom?.takeIf { it in ids }
+    val givenTo = keyTo?.takeIf { it in ids }
+    // Only the receiver is known (a payment I received): the payer is whoever owes them most, else anyone else.
+    val payerFor = givenTo?.takeIf { givenFrom == null }?.let { receiver ->
+        all.filter { it.toMemberId == receiver && it.fromMemberId in ids }.minWithOrNull(preference)?.fromMemberId
+            ?: members.firstOrNull { !it.removed && it.id != receiver }?.id
+    }
+    val from = givenFrom ?: pick?.fromMemberId ?: payerFor ?: myMemberId?.takeIf { it in ids }
+    // Only the payer is known (a payment I made): the receiver is whoever they owe most.
+    val owedBy = givenFrom?.takeIf { givenTo == null }?.let { payer ->
+        all.filter { it.fromMemberId == payer && it.toMemberId in ids }.minWithOrNull(preference)?.toMemberId
+    }
+    val to = givenTo ?: pick?.toMemberId ?: owedBy ?: (if (from == firstOther) myMemberId else firstOther)
     val chosenCurrency = currency
         ?: pick?.currency
         ?: all.filter { it.fromMemberId == from && it.toMemberId == to }.minWithOrNull(preference)?.currency
