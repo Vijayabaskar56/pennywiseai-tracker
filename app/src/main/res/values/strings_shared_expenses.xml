@@ -17,7 +17,10 @@
     <string name="shared_copy">Copy</string>
     <string name="shared_done">Done</string>
     <string name="shared_more">More options</string>
-    <string name="shared_placeholder_body">This screen is coming in the next update.</string>
+    <string name="shared_ok">OK</string>
+    <string name="shared_edit">Edit</string>
+    <string name="shared_delete">Delete</string>
+    <string name="shared_restore">Restore</string>
 
     <!-- People and balances -->
     <string name="shared_person_you">You</string>
@@ -32,6 +35,7 @@
     </plurals>
 
     <!-- Sync status -->
+    <string name="shared_banner_review">Review</string>
     <string name="shared_banner_offline">You\'re offline. Showing what\'s on this phone.</string>
     <plurals name="shared_banner_problems">
         <item quantity="one">%1$d change couldn\'t be sent</item>
@@ -90,12 +94,154 @@
     <string name="shared_settlement_row">%1$s paid %2$s</string>
     <string name="shared_add_expense">Add expense</string>
 
-    <!-- Screens a later update fills in -->
+    <!-- Screen titles -->
     <string name="shared_expense_editor_title">Add expense</string>
     <string name="shared_expense_detail_title">Expense</string>
     <string name="shared_settle_up_title">Settle up</string>
     <string name="shared_activity_title">Activity</string>
     <string name="shared_recurring_title">Recurring expenses</string>
+
+    <!-- Expense form -->
+    <string name="shared_expense_edit_title">Edit expense</string>
+    <string name="shared_recurring_edit_title">Edit recurring expense</string>
+    <string name="shared_field_description">Description</string>
+    <string name="shared_field_amount">Amount</string>
+    <string name="shared_field_date">Date</string>
+    <string name="shared_field_next_date">Next date</string>
+    <string name="shared_field_category">Category</string>
+    <string name="shared_field_notes">Notes</string>
+    <string name="shared_category_none">None</string>
+    <string name="shared_member_removed_label">%1$s (removed)</string>
+    <string name="shared_paid_by_title">Paid by</string>
+    <string name="shared_paid_by_several_option">Several people</string>
+    <string name="shared_split_title">Split</string>
+    <string name="shared_split_equal">Equal</string>
+    <string name="shared_split_exact">Exact</string>
+    <string name="shared_split_percent">Percent</string>
+    <string name="shared_split_shares">Shares</string>
+    <string name="shared_percent_suffix" formatted="false">%</string>
+    <string name="shared_shares_less">One share less for %1$s</string>
+    <string name="shared_shares_more">One share more for %1$s</string>
+    <string name="shared_left_done">Adds up</string>
+    <string name="shared_left_money">%1$s left to assign</string>
+    <string name="shared_over_money">%1$s too much</string>
+    <string name="shared_left_percent">%1$s%% left to assign</string>
+    <string name="shared_over_percent">%1$s%% too much</string>
+    <string name="shared_repeat_title">Repeat</string>
+    <string name="shared_repeat_none">None</string>
+    <string name="shared_repeat_weekly">Weekly</string>
+    <string name="shared_repeat_monthly">Monthly</string>
+    <string name="shared_repeat_yearly">Yearly</string>
+    <string name="shared_repeat_hint">This expense is added now, then again on each due date.</string>
+
+    <!-- Expense detail -->
+    <string name="shared_expense_deleted">This expense was deleted.</string>
+    <string name="shared_detail_split">Split · %1$s</string>
+    <string name="shared_weight_percent">%1$s%%</string>
+    <plurals name="shared_weight_shares">
+        <item quantity="one">%1$d share</item>
+        <item quantity="other">%1$d shares</item>
+    </plurals>
+    <string name="shared_detail_added_by">Added by %1$s · %2$s</string>
+    <string name="shared_detail_changed_by">Last changed by %1$s · %2$s</string>
+    <string name="shared_detail_from_recurring">Added by a recurring expense</string>
+    <string name="shared_delete_expense_title">Delete this expense?</string>
+    <string name="shared_delete_expense_body">It is deleted for every member. You can restore it later from the activity feed.</string>
+
+    <!-- Settle up -->
+    <string name="shared_settlement_edit_title">Edit payment</string>
+    <string name="shared_settle_who">Who paid whom</string>
+    <string name="shared_settle_from">Paid by</string>
+    <string name="shared_settle_to">Paid to</string>
+    <string name="shared_settle_swap">Swap who paid and who was paid</string>
+    <string name="shared_settle_choose">Choose</string>
+    <string name="shared_record_payment">Record payment</string>
+    <string name="shared_pay_with_upi">Pay with UPI</string>
+    <string name="shared_pay_with_upi_hint">Opens your UPI app. Paying there doesn\'t record it here: come back and tap Record payment.</string>
+    <string name="shared_upi_id_title">%1$s\'s UPI ID</string>
+    <string name="shared_upi_id_label">UPI ID</string>
+    <string name="shared_upi_id_body">Saved on this phone only, so you are asked once.</string>
+    <string name="shared_upi_id_invalid">That isn\'t a UPI ID, such as name@bank.</string>
+    <string name="shared_upi_id_saved">UPI ID: %1$s</string>
+    <string name="shared_upi_id_change">Change</string>
+    <string name="shared_upi_no_app">No UPI app found on this phone.</string>
+    <string name="shared_delete_settlement_title">Delete this payment?</string>
+    <string name="shared_delete_settlement_body">It is deleted for every member, and balances go back to before it.</string>
+
+    <!-- Recurring -->
+    <string name="shared_recurring_row">%1$s · next %2$s</string>
+    <string name="shared_recurring_empty_title">No recurring expenses</string>
+    <string name="shared_recurring_empty_body">To make one, add an expense and choose how often it repeats under Repeat.</string>
+    <string name="shared_recurring_stop">Stop</string>
+    <string name="shared_recurring_stop_named">Stop repeating %1$s</string>
+    <string name="shared_recurring_stop_title">Stop repeating %1$s?</string>
+    <string name="shared_recurring_stop_body">No new expenses are added from it. Expenses it already added stay.</string>
+
+    <!-- Activity -->
+    <string name="shared_activity_empty_title">No activity yet</string>
+    <string name="shared_activity_empty_body">Changes to expenses, payments and members show here.</string>
+    <string name="shared_activity_meta_group">%1$s · %2$s</string>
+    <string name="shared_activity_restored">Expense restored</string>
+    <string name="shared_actor_recurring">Recurring</string>
+    <string name="shared_activity_an_expense">an expense</string>
+    <string name="shared_activity_subject_amount">%1$s, %2$s</string>
+    <string name="shared_activity_group_created">%1$s created the group %2$s</string>
+    <string name="shared_activity_group_deleted">%1$s deleted the group %2$s</string>
+    <string name="shared_activity_group_renamed">%1$s renamed the group from %2$s to %3$s</string>
+    <string name="shared_activity_group_renamed_to">%1$s renamed the group to %2$s</string>
+    <string name="shared_activity_settings_currency">%1$s set the default currency to %2$s</string>
+    <string name="shared_activity_settings_simplify_on">%1$s turned on simplify debts</string>
+    <string name="shared_activity_settings_simplify_off">%1$s turned off simplify debts</string>
+    <string name="shared_activity_settings_changed">%1$s changed the group settings</string>
+    <string name="shared_activity_member_added">%1$s added %2$s</string>
+    <string name="shared_activity_member_joined">%1$s joined the group</string>
+    <string name="shared_activity_member_left">%1$s left the group</string>
+    <string name="shared_activity_member_removed">%1$s removed %2$s</string>
+    <string name="shared_activity_member_renamed">%1$s renamed %2$s to %3$s</string>
+    <string name="shared_activity_member_renamed_to">%1$s renamed a member to %2$s</string>
+    <string name="shared_activity_expense_added">%1$s added %2$s</string>
+    <string name="shared_activity_expense_edited">%1$s edited %2$s</string>
+    <string name="shared_activity_expense_deleted">%1$s deleted %2$s</string>
+    <string name="shared_activity_expense_restored">%1$s restored %2$s</string>
+    <string name="shared_activity_settlement_added">%1$s recorded that %2$s paid %3$s %4$s</string>
+    <string name="shared_activity_settlement_edited">%1$s edited a payment: %2$s paid %3$s %4$s</string>
+    <string name="shared_activity_settlement_deleted">%1$s deleted a payment: %2$s paid %3$s %4$s</string>
+    <string name="shared_activity_recurring_added">%1$s added a %3$s expense: %2$s</string>
+    <string name="shared_activity_recurring_edited">%1$s edited the %3$s expense %2$s</string>
+    <string name="shared_activity_recurring_stopped">%1$s stopped the %3$s expense %2$s</string>
+    <string name="shared_activity_interval_weekly">weekly</string>
+    <string name="shared_activity_interval_monthly">monthly</string>
+    <string name="shared_activity_interval_yearly">yearly</string>
+    <string name="shared_activity_interval_unknown">recurring</string>
+
+    <!-- Changes that need attention -->
+    <string name="shared_problems_title">Changes to check</string>
+    <string name="shared_problems_empty_title">Nothing to check</string>
+    <string name="shared_problems_empty_body">Every change on this phone was sent.</string>
+    <string name="shared_problem_conflict_title">Someone else changed this too</string>
+    <string name="shared_problem_conflict_body">Keep your version, or use theirs.</string>
+    <string name="shared_problem_failed_title">This change couldn\'t be sent</string>
+    <string name="shared_problem_failed_body">The server refused it: %1$s</string>
+    <string name="shared_problem_keep_mine">Keep mine</string>
+    <string name="shared_problem_use_theirs">Use theirs</string>
+    <string name="shared_problem_discard">Discard my change</string>
+    <string name="shared_problem_open">Open</string>
+    <string name="shared_problem_mine">Yours</string>
+    <string name="shared_problem_theirs">Theirs</string>
+    <string name="shared_problem_state">State</string>
+    <string name="shared_problem_deleted">Deleted</string>
+    <string name="shared_problem_kept">Kept</string>
+    <string name="shared_problem_who_paid">Who paid</string>
+    <string name="shared_problem_changed_by">Changed by</string>
+    <string name="shared_problem_unknown_row">A change that is no longer on this phone</string>
+    <string name="shared_problem_subject">%1$s, %2$s</string>
+    <string name="shared_problem_type_expense">an expense</string>
+    <string name="shared_problem_type_settlement">a payment</string>
+    <string name="shared_problem_type_recurring">a recurring expense</string>
+    <string name="shared_problem_op_save">Your change to %1$s</string>
+    <string name="shared_problem_op_delete">Your delete of %1$s</string>
+    <string name="shared_problem_op_restore">Your restore of %1$s</string>
+    <string name="shared_problem_in_group">%1$s in %2$s</string>
 
     <!-- Members -->
     <string name="shared_members_title">Members</string>

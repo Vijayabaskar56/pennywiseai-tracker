@@ -57,6 +57,7 @@ import com.pennywiseai.tracker.navigation.SharedExpenseDetail
 import com.pennywiseai.tracker.navigation.SharedExpenseEditor
 import com.pennywiseai.tracker.navigation.SharedGroupSettings
 import com.pennywiseai.tracker.navigation.SharedMembers
+import com.pennywiseai.tracker.navigation.SharedProblems
 import com.pennywiseai.tracker.navigation.SharedRecurringList
 import com.pennywiseai.tracker.navigation.SharedSettleUp
 import com.pennywiseai.tracker.ui.components.PennyWiseScaffold
@@ -173,6 +174,7 @@ fun SharedGroupDetailScreen(
                         syncing = state.syncing,
                         onRetry = viewModel::refresh,
                         modifier = Modifier.padding(bottom = Spacing.sm),
+                        onOpenProblems = { onNavigate(SharedProblems) },
                     )
                 }
                 item(key = "balance") {
@@ -238,7 +240,12 @@ fun SharedGroupDetailScreen(
                             onClick = { onNavigate(SharedExpenseDetail(groupId, item.id)) },
                             modifier = Modifier.animateItem(),
                         )
-                        is LedgerItem.Settlement -> SettlementRow(item, rowPosition(state.ledger, i), Modifier.animateItem())
+                        is LedgerItem.Settlement -> SettlementRow(
+                            item = item,
+                            position = rowPosition(state.ledger, i),
+                            onClick = { onNavigate(SharedSettleUp(groupId, settlementId = item.id)) },
+                            modifier = Modifier.animateItem(),
+                        )
                     }
                 }
             }
@@ -283,8 +290,8 @@ private fun ExpenseRow(item: LedgerItem.Expense, position: ListItemPosition, onC
 }
 
 @Composable
-private fun SettlementRow(item: LedgerItem.Settlement, position: ListItemPosition, modifier: Modifier = Modifier) {
-    GroupedRow(position = position, modifier = modifier) {
+private fun SettlementRow(item: LedgerItem.Settlement, position: ListItemPosition, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    GroupedRow(position = position, onClick = onClick, modifier = modifier) {
         DateBadge(item.date)
         Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.xs)) {
             Text(settlementText(item.from, item.to), style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))

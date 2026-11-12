@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -22,7 +21,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.CloudUpload
-import androidx.compose.material.icons.filled.Construction
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.AlertDialog
@@ -56,8 +54,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import com.pennywiseai.tracker.R
 import com.pennywiseai.tracker.ui.UiText
-import com.pennywiseai.tracker.ui.components.PennyWiseEmptyState
-import com.pennywiseai.tracker.ui.components.PennyWiseScaffold
 import com.pennywiseai.tracker.ui.theme.Dimensions
 import com.pennywiseai.tracker.ui.theme.Spacing
 import com.pennywiseai.tracker.ui.theme.income
@@ -65,8 +61,7 @@ import com.pennywiseai.tracker.ui.theme.warning
 import com.pennywiseai.tracker.utils.CurrencyFormatter
 import kotlinx.coroutines.delay
 
-// Small pieces every Shared screen uses. They take plain values, so the screens
-// the next task writes (expense form, settle up, activity) can use them as-is.
+// Small pieces every Shared screen uses. They take plain values.
 
 /** The back arrow every Shared screen's top bar starts with. */
 @Composable
@@ -211,6 +206,8 @@ fun SharedSyncBanner(
     syncing: Boolean,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
+    /** Opens the list of changes that need attention; the problem count is tappable when set. */
+    onOpenProblems: (() -> Unit)? = null,
 ) {
     if (error == null && problemCount == 0) return
     Surface(
@@ -245,7 +242,10 @@ fun SharedSyncBanner(
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
-                    modifier = Modifier.heightIn(min = Dimensions.Component.minTouchTarget),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = Dimensions.Component.minTouchTarget)
+                        .then(if (onOpenProblems != null) Modifier.clickable(role = Role.Button, onClick = onOpenProblems) else Modifier),
                 ) {
                     Icon(
                         Icons.Default.WarningAmber,
@@ -257,7 +257,15 @@ fun SharedSyncBanner(
                         text = pluralStringResource(R.plurals.shared_banner_problems, problemCount, problemCount),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.weight(1f),
                     )
+                    if (onOpenProblems != null) {
+                        Text(
+                            text = stringResource(R.string.shared_banner_review),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    }
                 }
             }
         }
@@ -400,23 +408,5 @@ fun SharedValueRow(label: String, value: String, onClick: () -> Unit, modifier: 
     ) {
         Text(label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
         Text(value, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.primary, maxLines = 1, overflow = TextOverflow.Ellipsis)
-    }
-}
-
-/**
- * The stand-in for a Shared screen another task builds: a top bar with a back
- * arrow and [title], and a short note. Its callers keep their signatures when
- * the real screen replaces it.
- */
-@Composable
-internal fun SharedPlaceholderScreen(title: String, onNavigateBack: () -> Unit) {
-    PennyWiseScaffold(title = title, navigationIcon = { SharedBackButton(onNavigateBack) }) { padding ->
-        Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-            PennyWiseEmptyState(
-                icon = Icons.Default.Construction,
-                headline = title,
-                description = stringResource(R.string.shared_placeholder_body),
-            )
-        }
     }
 }

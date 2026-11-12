@@ -10,6 +10,7 @@ import com.pennywiseai.tracker.presentation.sharedexpenses.SharedGroupSettingsSc
 import com.pennywiseai.tracker.presentation.sharedexpenses.SharedGroupsScreen
 import com.pennywiseai.tracker.presentation.sharedexpenses.SharedJoinScreen
 import com.pennywiseai.tracker.presentation.sharedexpenses.SharedMembersScreen
+import com.pennywiseai.tracker.presentation.sharedexpenses.SharedProblemsScreen
 import com.pennywiseai.tracker.presentation.sharedexpenses.SharedRecurringScreen
 import com.pennywiseai.tracker.presentation.sharedexpenses.SharedSettingsScreen
 import com.pennywiseai.tracker.presentation.sharedexpenses.SharedSettleUpScreen
@@ -60,6 +61,7 @@ fun EntryProviderScope<NavKey>.sharedExpensesEntries(nav: SharedNavigator, withT
             groupId = key.groupId,
             expenseId = key.expenseId,
             fromTransactionId = key.fromTransactionId,
+            recurringId = key.recurringId,
             onNavigateBack = { nav.back(key) },
             onNavigate = nav.open,
         )
@@ -74,6 +76,7 @@ fun EntryProviderScope<NavKey>.sharedExpensesEntries(nav: SharedNavigator, withT
             toMemberId = key.toMemberId,
             amount = key.amount,
             currency = key.currency,
+            settlementId = key.settlementId,
             onNavigateBack = { nav.back(key) },
             onNavigate = nav.open,
         )
@@ -83,5 +86,8 @@ fun EntryProviderScope<NavKey>.sharedExpensesEntries(nav: SharedNavigator, withT
     }
     entry<SharedRecurringList> { key ->
         SharedRecurringScreen(groupId = key.groupId, onNavigateBack = { nav.back(key) }, onNavigate = nav.open)
+    }
+    entry<SharedProblems> { key ->
+        SharedProblemsScreen(onNavigateBack = { nav.back(key) }, onNavigate = nav.open)
     }
 }

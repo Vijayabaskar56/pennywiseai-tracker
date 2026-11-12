@@ -58,6 +58,7 @@ import com.pennywiseai.tracker.R
 import com.pennywiseai.tracker.navigation.SharedActivityFeed
 import com.pennywiseai.tracker.navigation.SharedGroupDetail
 import com.pennywiseai.tracker.navigation.SharedJoin
+import com.pennywiseai.tracker.navigation.SharedProblems
 import com.pennywiseai.tracker.navigation.SharedSettings
 import com.pennywiseai.tracker.ui.components.DockNavAction
 import com.pennywiseai.tracker.ui.components.LocalNavDock
@@ -159,6 +160,7 @@ fun SharedGroupsScreen(
                             problemCount = state.problemCount,
                             syncing = state.syncing,
                             onRetry = viewModel::refresh,
+                            onOpenProblems = { onNavigate(SharedProblems) },
                         )
                     }
                     if (state.groups.isEmpty()) {

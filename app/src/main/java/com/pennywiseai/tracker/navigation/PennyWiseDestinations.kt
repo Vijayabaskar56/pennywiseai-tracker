@@ -218,18 +218,25 @@ data object SharedSettings : NavKey
 @Serializable
 data class SharedJoin(val server: String, val token: String) : NavKey
 
-/** New expense ([expenseId] null), optionally filled from a bank transaction, or edit one. */
+/**
+ * New expense ([expenseId] null), optionally filled from a bank transaction, or
+ * edit one. With [recurringId] it edits that recurring expense's template instead.
+ */
 @Serializable
 data class SharedExpenseEditor(
     val groupId: String,
     val expenseId: String? = null,
     val fromTransactionId: Long? = null,
+    val recurringId: String? = null,
 ) : NavKey
 
 @Serializable
 data class SharedExpenseDetail(val groupId: String, val expenseId: String) : NavKey
 
-/** Record a Settlement; any of the pair, amount (a decimal string) and currency may be prefilled. */
+/**
+ * Record a Settlement; any of the pair, amount (a decimal string) and currency
+ * may be prefilled. With [settlementId] it edits (or deletes) that Settlement.
+ */
 @Serializable
 data class SharedSettleUp(
     val groupId: String,
@@ -237,6 +244,7 @@ data class SharedSettleUp(
     val toMemberId: String? = null,
     val amount: String? = null,
     val currency: String? = null,
+    val settlementId: String? = null,
 ) : NavKey
 
 /** One group's activity feed, or every group's when [groupId] is null. */
@@ -245,3 +253,7 @@ data class SharedActivityFeed(val groupId: String? = null) : NavKey
 
 @Serializable
 data class SharedRecurringList(val groupId: String) : NavKey
+
+/** Every change, across groups, the server refused or that clashes with someone else's edit. */
+@Serializable
+data object SharedProblems : NavKey
