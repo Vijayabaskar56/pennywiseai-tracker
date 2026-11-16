@@ -169,6 +169,7 @@ internal class ScanHarness(
         coEvery { transactions.getAnyBySmsAround(any(), any(), any(), any()) } returns null
         coEvery { transactions.getTransactionById(any()) } answers { store.byId(firstArg()) }
         coEvery { transactions.findPotentialDuplicates(any()) } returns emptyList()
+        coEvery { transactions.findTruncatedReferencePartner(any()) } returns null
         coEvery { transactions.getTransactionByAmountAndDateIncludingDeleted(any(), any(), any()) } answers {
             store.near(firstArg(), secondArg(), thirdArg())
         }

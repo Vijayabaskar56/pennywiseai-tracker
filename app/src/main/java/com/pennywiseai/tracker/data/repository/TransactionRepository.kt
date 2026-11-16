@@ -348,6 +348,22 @@ open class TransactionRepository @Inject constructor(
         }
     }
 
+    /** The other text of an IOB-style UPI pair (see [TransactionDeduplication.isSameUpiByTruncatedReference]). */
+    suspend fun findTruncatedReferencePartner(transaction: TransactionEntity): TransactionEntity? {
+        if (!TransactionDeduplication.hasUpiReference(transaction) &&
+            !TransactionDeduplication.hasTruncatedReference(transaction)
+        ) return null
+        val window = TransactionDeduplication.TRUNCATED_REFERENCE_WINDOW
+        return transactionDao.getTransactionByAmountAndDate(
+            transaction.amount,
+            transaction.dateTime.minus(window),
+            transaction.dateTime.plus(window)
+        ).filter { candidate ->
+            candidate.id != transaction.id &&
+                TransactionDeduplication.isSameUpiByTruncatedReference(candidate, transaction)
+        }.minByOrNull { java.time.Duration.between(it.dateTime, transaction.dateTime).abs() }
+    }
+
     suspend fun getTransactionByAmountAndDate(
         amount: BigDecimal,
         dateStart: LocalDateTime,

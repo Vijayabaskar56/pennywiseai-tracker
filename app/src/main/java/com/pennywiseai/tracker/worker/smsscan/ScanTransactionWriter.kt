@@ -245,6 +245,19 @@ internal class ScanTransactionWriter(
                     return@coroutineScope SaveOutcome.SKIPPED_DUPLICATE
                 }
 
+                // IOB texts one UPI payment twice; the second one completes the first row.
+                transactionRepository.findTruncatedReferencePartner(finalEntity)?.let { partner ->
+                    val merged = TransactionDeduplication.mergeTruncatedReferencePair(partner, finalEntity)
+                    if (merged == partner) return@coroutineScope SaveOutcome.SKIPPED_DUPLICATE
+                    transactionRepository.updateTransaction(merged)
+                    if (finalEntity.balanceAfter != null) {
+                        pendingBalance = parsedInput.atEnqueuedAccount(parsed, merged)?.let {
+                            DeferredBalanceUpdate(it, partner.id)
+                        }
+                    }
+                    return@coroutineScope SaveOutcome.UPDATED_DUPLICATE
+                }
+
                 // One transaction: a charge that commits without its schedule advance
                 // would leave the bill due forever — a re-scan skips the row by hash.
                 val rowId = database.withTransaction {

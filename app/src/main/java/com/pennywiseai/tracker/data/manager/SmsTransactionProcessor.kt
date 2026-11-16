@@ -263,6 +263,14 @@ class SmsTransactionProcessor @Inject constructor(
                 entityWithRules
             }
 
+            // IOB texts one UPI payment twice; the second one completes the first row.
+            transactionRepository.findTruncatedReferencePartner(finalEntity)?.let { partner ->
+                val merged = TransactionDeduplication.mergeTruncatedReferencePair(partner, finalEntity)
+                if (merged != partner) transactionRepository.updateTransaction(merged)
+                if (finalEntity.balanceAfter != null) processBalanceUpdate(parsedTransaction, merged, partner.id)
+                return ProcessingResult(false, reason = "Duplicate transaction")
+            }
+
             val rowId = if (matchedSubscription != null) {
                 // Atomicity: advance the billing cycle only if the charge row commits.
                 // Insert returning -1L (duplicate hash) or a throw must leave

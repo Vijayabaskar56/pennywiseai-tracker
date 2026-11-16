@@ -337,4 +337,57 @@ class TransactionDeduplicationTest {
         )
         assertEquals(mapOf(2L to 1L, 3L to 1L), TransactionDeduplication.duplicatesToKeepers(transactions))
     }
+
+    // IOB texts one UPI payment twice: the payee text with the full reference, and a
+    // balance text with only its first six digits ("[UPI/612345 ]").
+    private fun iobPayee(id: Long, dateTime: LocalDateTime = baseTime) = transaction(
+        id = id, bankName = "Indian Overseas Bank", reference = "612345678901", amount = BigDecimal("250.00"),
+        accountNumber = "", balanceAfter = null, merchantName = "JOHN DOE", dateTime = dateTime
+    )
+
+    private fun iobBalance(id: Long, dateTime: LocalDateTime = baseTime.plusSeconds(30), amount: String = "250.00") = transaction(
+        id = id, bankName = "Indian Overseas Bank", reference = "612345", amount = BigDecimal(amount),
+        accountNumber = "1234", balanceAfter = BigDecimal("1750.25"), merchantName = "Unknown Merchant", dateTime = dateTime
+    )
+
+    @Test
+    fun `IOB balance text matches the payee text by truncated reference, either order`() {
+        assertTrue(TransactionDeduplication.isSameUpiByTruncatedReference(iobPayee(1), iobBalance(2)))
+        assertTrue(TransactionDeduplication.isSameUpiByTruncatedReference(iobBalance(1), iobPayee(2)))
+    }
+
+    @Test
+    fun `truncated reference with a different amount is a different payment`() {
+        assertFalse(TransactionDeduplication.isSameUpiByTruncatedReference(iobPayee(1), iobBalance(2, amount = "251.00")))
+    }
+
+    @Test
+    fun `truncated reference outside the window or from another bank does not match`() {
+        assertFalse(TransactionDeduplication.isSameUpiByTruncatedReference(iobPayee(1), iobBalance(2, dateTime = baseTime.plusHours(7))))
+        assertFalse(
+            TransactionDeduplication.isSameUpiByTruncatedReference(iobPayee(1).copy(bankName = "Canara Bank"), iobBalance(2))
+        )
+        // Two full references are the exact-match path's job, not this one.
+        assertFalse(TransactionDeduplication.isSameUpiByTruncatedReference(iobPayee(1), iobPayee(2)))
+    }
+
+    @Test
+    fun `payee text arriving second names the stored balance row`() {
+        val merged = TransactionDeduplication.mergeTruncatedReferencePair(iobBalance(1), iobPayee(2).copy(category = "Food"))
+        assertEquals(1L, merged.id)
+        assertEquals("JOHN DOE", merged.merchantName)
+        assertEquals("612345678901", merged.reference)
+        assertEquals("Food", merged.category)
+        assertEquals(BigDecimal("1750.25"), merged.balanceAfter)
+    }
+
+    @Test
+    fun `balance text arriving second adds the balance and keeps the user's category`() {
+        val stored = iobPayee(1).copy(category = "Tea")
+        val merged = TransactionDeduplication.mergeTruncatedReferencePair(stored, iobBalance(2))
+        assertEquals("JOHN DOE", merged.merchantName)
+        assertEquals("Tea", merged.category)
+        assertEquals(BigDecimal("1750.25"), merged.balanceAfter)
+        assertEquals("1234", merged.accountNumber)
+    }
 }

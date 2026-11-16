@@ -56,6 +56,63 @@ object TransactionDeduplication {
         return gap <= window
     }
 
+    /** The first digits of a UPI reference, as IOB's balance text prints it ("[UPI/612345 ]"). */
+    private val truncatedReferencePattern = Regex("""\d{4,11}""")
+
+    /** IOB's two texts for one UPI payment arrive seconds apart, rarely hours. */
+    val TRUNCATED_REFERENCE_WINDOW: Duration = Duration.ofHours(6)
+
+    fun hasTruncatedReference(transaction: TransactionEntity): Boolean =
+        transaction.reference?.let { truncatedReferencePattern.matches(it) } == true
+
+    /**
+     * One UPI payment the same bank texted twice: once with the full 12-digit
+     * reference and the payee, once with the balance and only the reference's
+     * first digits (IOB). Amount, direction, currency and account must agree.
+     */
+    fun isSameUpiByTruncatedReference(
+        existing: TransactionEntity,
+        incoming: TransactionEntity,
+        window: Duration = TRUNCATED_REFERENCE_WINDOW
+    ): Boolean {
+        if (!existing.bankName.equals(incoming.bankName, ignoreCase = true)) return false
+        val (full, short) = when {
+            hasUpiReference(existing) && hasTruncatedReference(incoming) -> existing.reference to incoming.reference
+            hasTruncatedReference(existing) && hasUpiReference(incoming) -> incoming.reference to existing.reference
+            else -> return false
+        }
+        if (full == null || short == null || !full.startsWith(short)) return false
+        if (existing.transactionType != incoming.transactionType) return false
+        if (existing.currency != incoming.currency) return false
+        if (existing.amount.compareTo(incoming.amount) != 0) return false
+        if (!accountsMatch(existing.accountNumber, incoming.accountNumber)) return false
+        return Duration.between(existing.dateTime, incoming.dateTime).abs() <= window
+    }
+
+    /**
+     * The stored row with what the other text of the pair adds: the payee and full
+     * reference from one, the balance and account from the other. The stored row
+     * keeps its id, and a category the user or a rule already set.
+     */
+    fun mergeTruncatedReferencePair(stored: TransactionEntity, incoming: TransactionEntity): TransactionEntity {
+        val incomingNamesPayee = hasUpiReference(incoming) && !hasUpiReference(stored)
+        if (!incomingNamesPayee) {
+            return stored.copy(
+                balanceAfter = stored.balanceAfter ?: incoming.balanceAfter,
+                accountNumber = stored.accountNumber?.takeIf { it.isNotBlank() } ?: incoming.accountNumber
+            )
+        }
+        return stored.copy(
+            merchantName = incoming.merchantName,
+            reference = incoming.reference,
+            category = if (stored.category == DEFAULT_CATEGORY) incoming.category else stored.category,
+            balanceAfter = stored.balanceAfter ?: incoming.balanceAfter,
+            accountNumber = stored.accountNumber?.takeIf { it.isNotBlank() } ?: incoming.accountNumber
+        )
+    }
+
+    private const val DEFAULT_CATEGORY = "Others"
+
     // Notification-vs-SMS cross-channel check: the same charge can carry a
     // different sender code and body text per channel, so content hashes
     // diverge. Callers pre-filter candidates by amount and time window; bank
