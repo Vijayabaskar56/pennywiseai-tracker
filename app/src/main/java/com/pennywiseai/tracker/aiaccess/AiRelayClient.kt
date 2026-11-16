@@ -2,6 +2,7 @@ package com.pennywiseai.tracker.aiaccess
 
 import android.content.Context
 import androidx.core.content.edit
+import com.pennywiseai.tracker.BuildConfig
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.okhttp.OkHttp
@@ -139,7 +140,9 @@ class AiRelayClient @Inject constructor(@ApplicationContext context: Context) {
     }
 
     companion object {
-        const val DEFAULT_RELAY_URL = "https://ai.pennywise.zynth.dev"
+        /** PennyWise's relay, unless the build sets `aiRelayUrl` in local.properties. */
+        val DEFAULT_RELAY_URL: String =
+            normalizeRelayUrl(BuildConfig.AI_RELAY_URL) ?: "https://ai.pennywise.zynth.dev"
         private const val KEY_ID = "device_id"
         private const val KEY_SECRET_SEALED = "device_secret_sealed"
         private const val KEY_RELAY = "relay_url"

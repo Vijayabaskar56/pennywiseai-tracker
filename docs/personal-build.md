@@ -43,6 +43,10 @@ this build share (the Shared tab). The design is in
   `sharedExpensesUrl=https://<your worker address>` to `local.properties`, then
   build as above. Without it, each person types the address once under Shared
   tab → settings.
+- **Your own AI relay as the default.** Add
+  `aiRelayUrl=https://<your relay address>` to `local.properties` to make the
+  APK use a relay you deployed (`relay/README.md`) instead of PennyWise's. It
+  can still be changed under AI access → Use your own relay.
 - **Everyone installs the same APK.** Send the APK to the people you share
   with. Each person opens the Shared tab, enters a display name, and joins from
   an Invite link.

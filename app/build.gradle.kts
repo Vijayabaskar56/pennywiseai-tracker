@@ -44,11 +44,15 @@ android {
             // the address can also be set in the Shared tab's settings.
             val sharedExpensesUrl = localProperties.getProperty("sharedExpensesUrl", "")
             buildConfigField("String", "SHARED_EXPENSES_URL", "\"$sharedExpensesUrl\"")
+            // AI access relay (relay/README.md). Empty = PennyWise's relay.
+            val aiRelayUrl = localProperties.getProperty("aiRelayUrl", "")
+            buildConfigField("String", "AI_RELAY_URL", "\"$aiRelayUrl\"")
         } else {
             // Fallback empty key for CI/CD builds
             buildConfigField("String", "RSA_PUBLIC_KEY", "\"\"")
             buildConfigField("String", "LICENSE_MOVE_URL", "\"\"")
             buildConfigField("String", "SHARED_EXPENSES_URL", "\"\"")
+            buildConfigField("String", "AI_RELAY_URL", "\"\"")
         }
     }
 

@@ -33,4 +33,4 @@ Open `https://ai.pennywise.zynth.dev/dashboard/` on a computer, click **Connect 
 
 ## Use your own relay
 
-For full control, run the open-source relay on your own Cloudflare account ([relay/README.md](../relay/README.md#self-hosting)), then in the app open **Use your own relay** and enter its `https://` address. Switching relays disconnects every AI app; connect them again with the new address.
+For full control, run the open-source relay on your own Cloudflare account ([relay/README.md](../relay/README.md#self-hosting)), then in the app open **Use your own relay** and enter its `https://` address. Switching relays disconnects every AI app; connect them again with the new address. To build an APK that uses your relay by default, add `aiRelayUrl=https://<your relay>` to `local.properties`.
