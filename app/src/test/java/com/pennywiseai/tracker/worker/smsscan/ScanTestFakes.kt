@@ -1,5 +1,6 @@
 package com.pennywiseai.tracker.worker.smsscan
 
+import com.pennywiseai.tracker.data.manager.TransactionDeduplication
 import com.pennywiseai.tracker.data.database.PennyWiseDatabase
 import com.pennywiseai.tracker.data.database.entity.AccountBalanceEntity
 import com.pennywiseai.tracker.data.database.entity.TransactionEntity
@@ -28,7 +29,7 @@ import java.util.concurrent.atomic.AtomicInteger
 
 internal const val ROOM_COMPAT = "com.pennywiseai.tracker.data.database.RoomCompatKt"
 
-private const val SCAN_T0 = 1_760_000_000_000L
+internal const val SCAN_T0 = 1_760_000_000_000L
 
 /** A debit in the format parser-core's HDFC samples use; [n] keeps each message distinct. */
 internal fun hdfcDebit(n: Int) = ScannedSms(
@@ -102,6 +103,8 @@ internal class FakeTransactionStore {
         }
     }
 
+    fun update(row: TransactionEntity) = synchronized(lock) { rows[row.id] = row }
+
     /** Rewrites every stored row, to set up what an earlier scan or the user left behind. */
     fun updateAll(change: (TransactionEntity) -> TransactionEntity) = synchronized(lock) {
         rows.replaceAll { _, row -> change(row) }
@@ -169,7 +172,12 @@ internal class ScanHarness(
         coEvery { transactions.getAnyBySmsAround(any(), any(), any(), any()) } returns null
         coEvery { transactions.getTransactionById(any()) } answers { store.byId(firstArg()) }
         coEvery { transactions.findPotentialDuplicates(any()) } returns emptyList()
-        coEvery { transactions.findTruncatedReferencePartner(any()) } returns null
+        coEvery { transactions.findTruncatedReferencePartner(any()) } answers {
+            val t = firstArg<TransactionEntity>()
+            val w = TransactionDeduplication.TRUNCATED_REFERENCE_WINDOW
+            TransactionDeduplication.truncatedReferencePartner(t, store.near(t.amount, t.dateTime.minus(w), t.dateTime.plus(w)))
+        }
+        coEvery { transactions.updateTransaction(any()) } answers { store.update(firstArg()) }
         coEvery { transactions.getTransactionByAmountAndDateIncludingDeleted(any(), any(), any()) } answers {
             store.near(firstArg(), secondArg(), thirdArg())
         }

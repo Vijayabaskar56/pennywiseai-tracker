@@ -1,6 +1,7 @@
 package com.pennywiseai.tracker.data.manager
 
 import com.pennywiseai.tracker.data.database.entity.TransactionEntity
+import com.pennywiseai.tracker.data.database.entity.TransactionType
 import java.time.Duration
 
 object TransactionDeduplication {
@@ -82,12 +83,20 @@ object TransactionDeduplication {
             else -> return false
         }
         if (full == null || short == null || !full.startsWith(short)) return false
-        if (existing.transactionType != incoming.transactionType) return false
+        // A rule may retype one side (an expense filed as a transfer); money still left the account.
+        val sameDirection = existing.transactionType == incoming.transactionType ||
+            (existing.transactionType != TransactionType.INCOME && incoming.transactionType != TransactionType.INCOME)
+        if (!sameDirection) return false
         if (existing.currency != incoming.currency) return false
         if (existing.amount.compareTo(incoming.amount) != 0) return false
         if (!accountsMatch(existing.accountNumber, incoming.accountNumber)) return false
         return Duration.between(existing.dateTime, incoming.dateTime).abs() <= window
     }
+
+    /** Of [nearby] rows (deleted ones included), the other text of [incoming]'s pair, closest in time. */
+    fun truncatedReferencePartner(incoming: TransactionEntity, nearby: List<TransactionEntity>): TransactionEntity? =
+        nearby.filter { it.id != incoming.id && isSameUpiByTruncatedReference(it, incoming) }
+            .minByOrNull { Duration.between(it.dateTime, incoming.dateTime).abs() }
 
     /**
      * The stored row with what the other text of the pair adds: the payee and full
@@ -98,6 +107,7 @@ object TransactionDeduplication {
         val incomingNamesPayee = hasUpiReference(incoming) && !hasUpiReference(stored)
         if (!incomingNamesPayee) {
             return stored.copy(
+                isRecurring = stored.isRecurring || incoming.isRecurring,
                 balanceAfter = stored.balanceAfter ?: incoming.balanceAfter,
                 accountNumber = stored.accountNumber?.takeIf { it.isNotBlank() } ?: incoming.accountNumber
             )
@@ -106,6 +116,7 @@ object TransactionDeduplication {
             merchantName = incoming.merchantName,
             reference = incoming.reference,
             category = if (stored.category == DEFAULT_CATEGORY) incoming.category else stored.category,
+            isRecurring = stored.isRecurring || incoming.isRecurring,
             balanceAfter = stored.balanceAfter ?: incoming.balanceAfter,
             accountNumber = stored.accountNumber?.takeIf { it.isNotBlank() } ?: incoming.accountNumber
         )

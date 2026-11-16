@@ -354,14 +354,13 @@ open class TransactionRepository @Inject constructor(
             !TransactionDeduplication.hasTruncatedReference(transaction)
         ) return null
         val window = TransactionDeduplication.TRUNCATED_REFERENCE_WINDOW
-        return transactionDao.getTransactionByAmountAndDate(
+        // Deleted rows count: the text folded into a row the user deleted must not come back (#703).
+        val nearby = transactionDao.getTransactionByAmountAndDateIncludingDeleted(
             transaction.amount,
             transaction.dateTime.minus(window),
             transaction.dateTime.plus(window)
-        ).filter { candidate ->
-            candidate.id != transaction.id &&
-                TransactionDeduplication.isSameUpiByTruncatedReference(candidate, transaction)
-        }.minByOrNull { java.time.Duration.between(it.dateTime, transaction.dateTime).abs() }
+        )
+        return TransactionDeduplication.truncatedReferencePartner(transaction, nearby)
     }
 
     suspend fun getTransactionByAmountAndDate(

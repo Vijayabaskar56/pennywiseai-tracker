@@ -247,6 +247,7 @@ internal class ScanTransactionWriter(
 
                 // IOB texts one UPI payment twice; the second one completes the first row.
                 transactionRepository.findTruncatedReferencePartner(finalEntity)?.let { partner ->
+                    if (partner.isDeleted) return@coroutineScope SaveOutcome.SKIPPED
                     val merged = TransactionDeduplication.mergeTruncatedReferencePair(partner, finalEntity)
                     if (merged == partner) return@coroutineScope SaveOutcome.SKIPPED_DUPLICATE
                     transactionRepository.updateTransaction(merged)

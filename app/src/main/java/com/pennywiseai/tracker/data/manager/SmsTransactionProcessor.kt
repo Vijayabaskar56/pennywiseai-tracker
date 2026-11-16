@@ -265,6 +265,7 @@ class SmsTransactionProcessor @Inject constructor(
 
             // IOB texts one UPI payment twice; the second one completes the first row.
             transactionRepository.findTruncatedReferencePartner(finalEntity)?.let { partner ->
+                if (partner.isDeleted) return ProcessingResult(false, reason = "Transaction was previously deleted")
                 val merged = TransactionDeduplication.mergeTruncatedReferencePair(partner, finalEntity)
                 if (merged != partner) transactionRepository.updateTransaction(merged)
                 if (finalEntity.balanceAfter != null) processBalanceUpdate(parsedTransaction, merged, partner.id)

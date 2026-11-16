@@ -281,4 +281,35 @@ class SmsScanPipelineTest {
 
         assertEquals(inbox.size, last)
     }
+
+    // IOB texts one UPI payment twice: the payee text and a balance text whose
+    // "[UPI/612345 ]" is the first six digits of the payee text's reference.
+    private val iobPayee = "Your a/c XXXXX12 debited for payee JOHN DOE. 250.00 on 2026-09-02, ref 612345678901.If not you, report to your bank immediately-IOB."
+    private val iobBalance = "Rs.250.00 Debited to SB-xxx1234 AcBal:1750.25 CLRBal: 1750.25 [UPI/612345 ] SAMPLE BRANCH on 02-09-2026 10:59:20.IOB."
+
+    @Test
+    fun `IOB payee and balance texts for one UPI payment book one transaction, either order`() = scanTest {
+        listOf(listOf(iobPayee, iobBalance), listOf(iobBalance, iobPayee)).forEachIndexed { run, bodies ->
+            val h = ScanHarness()  // fresh store per order
+            val texts = bodies.mapIndexed { i, body -> scannedSms("AD-IOBCHN", body, id = i + 1L, timestamp = SCAN_T0 + i * 30_000L) }
+            h.scan(texts)
+
+            val rows = h.store.all
+            assertEquals("run $run", 1, rows.size)
+            assertEquals("run $run", "JOHN DOE", rows.single().merchantName.uppercase())
+            assertEquals("run $run", "612345678901", rows.single().reference)
+            assertEquals("run $run", 0, BigDecimal("1750.25").compareTo(rows.single().balanceAfter))
+        }
+    }
+
+    @Test
+    fun `a deleted IOB payment stays deleted when its balance text is read again`() = scanTest {
+        h.scan(listOf(scannedSms("AD-IOBCHN", iobPayee, id = 1L)))
+        h.store.updateAll { it.copy(isDeleted = true) }
+
+        h.scan(listOf(scannedSms("AD-IOBCHN", iobBalance, id = 2L, timestamp = SCAN_T0 + 30_000L)))
+
+        assertEquals(1, h.store.all.size)
+        assertTrue(h.store.all.single().isDeleted)
+    }
 }
