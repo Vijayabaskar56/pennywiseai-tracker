@@ -46,27 +46,35 @@ npm run typecheck
 
 ## Deploy to your Cloudflare account
 
-You need a Cloudflare account (the free plan is enough).
+You need a Cloudflare account (the free plan is enough) and the Cloudflare CLI, `cf`
+(`npm i -g cf@latest`). Deploys read `cloudflare.config.ts`; your deployment's own values go in
+`.deploy.env`, which git ignores.
 
 1. `cd shared-expenses && npm ci`
-2. `npx wrangler login`
-3. Create the database: `npx wrangler d1 create pennywise-shared-expenses`. Copy the printed
-   `database_id` into `wrangler.jsonc`, replacing `00000000-0000-0000-0000-000000000000`.
-4. Create the tables: `npx wrangler d1 migrations apply DB --remote`
-5. The rate-limit `namespace_id`s in `wrangler.jsonc` must be unique within your account; change them
-   if they clash with another Worker's (the AI relay uses 840101 to 840103).
-6. `npm run deploy`. Wrangler prints the Worker's address, such as
-   `https://pennywise-shared-expenses.<your-subdomain>.workers.dev`.
-7. Set `vars.BASE_URL` in `wrangler.jsonc` to that `https://` address (no trailing slash) and run
-   `npm run deploy` again. Invite links are built from it. To use your own domain instead, add a
-   `routes` entry with `"custom_domain": true` and use that address as `BASE_URL`.
+2. `cf auth login`
+3. Create the database: `cf d1 create --name pennywise-shared-expenses`.
+4. `cp .deploy.env.example .deploy.env` and set `SHARED_EXPENSES_D1_ID` to the printed `uuid`.
+   - **Custom domain:** set `SHARED_EXPENSES_DOMAIN` to a hostname on a zone in your account, such
+     as `shared.example.com`. The deploy attaches it, turns off the `workers.dev` address, and
+     builds invite links from `https://<domain>`.
+   - **No custom domain:** leave it empty, deploy once, then set `BASE_URL` to the
+     `https://pennywise-shared-expenses.<your-subdomain>.workers.dev` address `cf deploy` printed
+     (no trailing slash) and deploy again. Invite links are built from it.
+5. The rate-limit namespaces in `cloudflare.config.ts` must be unique within your account; change
+   them if they clash with another Worker's (the AI relay uses 840101 to 840103).
+6. `npm run deploy`. It creates any missing tables (`npm run migrate`, which runs
+   `cf d1 migrations apply`), then runs `cf deploy`.
 
-When a later version adds a file to `migrations/`, run step 4 again before deploying.
+Run `npm run deploy` again after each update. It applies new files in `migrations/` before it
+deploys. With no new migrations, `cf deploy` alone is enough.
+
+Tests and `npm run dev` still use Wrangler and `wrangler.jsonc`, so a binding change goes in both
+`wrangler.jsonc` and `cloudflare.config.ts`.
 
 ## Point the app at it
 
-- **Build-time default:** add `sharedExpensesUrl=https://pennywise-shared-expenses.<your-subdomain>.workers.dev`
-  to the Android project's `local.properties`, then rebuild.
+- **Build-time default:** add `sharedExpensesUrl=<the Worker's https:// address>` (the custom
+  domain, or the `workers.dev` address) to the Android project's `local.properties`, then rebuild.
 - **On the phone:** Shared tab → settings → server address.
 
 The address must be `https://`, except `http://localhost` and `http://127.0.0.1` for a local server. An
@@ -90,3 +98,6 @@ address registers the phone afresh with the new server.
 | `src/changes.ts` | The sync feed, paged by whole revisions |
 | `src/cron.ts` | Daily job that creates due recurring expenses |
 | `migrations/` | D1 schema |
+| `cloudflare.config.ts`, `.deploy.env.example` | Deploy configuration for `cf deploy` |
+| `wrangler.jsonc` | Local configuration for `npm run dev` and the tests |
+| `scripts/migrate.mjs` | Applies `migrations/` to the deployed database |

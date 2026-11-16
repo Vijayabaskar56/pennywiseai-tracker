@@ -7,13 +7,15 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "types": "wrangler types",
-    "deploy": "wrangler deploy"
+    "deploy": "node scripts/migrate.mjs && cf deploy",
+    "migrate": "node scripts/migrate.mjs"
   },
   "devDependencies": {
     "@cloudflare/vitest-plugin": "^1.5.0",
     "@cloudflare/workers-types": "^5.20261103.1",
+    "cf": "^1.0.0-beta.32",
     "typescript": "^7.0.2",
     "vitest": "^5.1.0",
-    "wrangler": "^4.156.2"
+    "wrangler": "^4.162.0"
   }
 }
