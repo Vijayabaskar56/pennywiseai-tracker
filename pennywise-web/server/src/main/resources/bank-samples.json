@@ -616,6 +616,17 @@
       "reference": "213416112188",
       "balance": "9585.65"
     },
+    "Indian Overseas Bank": {
+      "sender": "VK-IOBCHN",
+      "message": "Rs.1200.00 Credited to SB-xxx1234 AcBal:2950.25 CLRBal: 2950.25 [UPI/698765 ] SAMPLE BRANCH on 03-09-2026 18:04:11.IOB.",
+      "currency": "INR",
+      "amount": "1200.00",
+      "type": "INCOME",
+      "merchant": null,
+      "accountLast4": "1234",
+      "reference": "698765",
+      "balance": "2950.25"
+    },
     "IndusInd Bank": {
       "sender": "AD-INDUSIND-S",
       "message": "A/C *XX1234 credited by Rs 25000.00 from xxxx.yyyy@ybl. RRN:510048508040. Avl Bal:105502.12. Not you? Call 18602677777 - IndusInd bank.",

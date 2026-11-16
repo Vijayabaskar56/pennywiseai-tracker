@@ -10,8 +10,26 @@ import java.math.BigDecimal
  *
  * SMS Format:
  * Your a/c no. XXXXX92 is credited by Rs.906.00 on 2025-08-28 17, from SIDDHANT SIN-7737219900@su(UPI Ref no 560699645381).Payer Remark - Paid via Supe -IOB
+ *
+ * A UPI payment arrives as two texts: one names the payee and the full 12-digit
+ * reference ("debited for payee NAME. 250.00 on 2026-09-02, ref 612345678901"), the
+ * other carries the balance and only the reference's first six digits
+ * ("Rs.250.00 Debited to SB-xxx1234 ... [UPI/612345 ]"). Both are parsed; the app
+ * books them once by matching the truncated reference against the full one.
  */
 class IndianOverseasBankParser : BankParser() {
+
+    /** "debited for payee JOHN DOE. 250.00 on 2026-09-02, ref 612345678901" */
+    private val payeeDebit = Regex(
+        """debited\s+for\s+payee\s+(.+?)\.\s+(?:Rs\.?\s*)?([0-9,]+(?:\.\d{1,2})?)\s+on\b""",
+        RegexOption.IGNORE_CASE
+    )
+
+    /** "[UPI/612345 ]" in the balance text: the first digits of the UPI reference. */
+    private val truncatedUpiReference = Regex("""\[UPI/(\d{4,12})\s*\]""", RegexOption.IGNORE_CASE)
+
+    /** "Debited to SB-xxx1234" / "Credited to SB-xxx1234": the account, not a counterparty. */
+    private val ownAccount = Regex("""(?:Debited|Credited)\s+to\s+SB-x*(\d{3,})""", RegexOption.IGNORE_CASE)
 
     override fun getBankName() = "Indian Overseas Bank"
 
@@ -22,6 +40,10 @@ class IndianOverseasBankParser : BankParser() {
     }
 
     override fun extractAmount(message: String): BigDecimal? {
+        payeeDebit.find(message)?.let { match ->
+            match.groupValues[2].replace(",", "").toBigDecimalOrNull()?.let { return it }
+        }
+
         // List of amount patterns for IOB
         val amountPatterns = listOf(
             // "credited by Rs.906.00"
@@ -64,6 +86,13 @@ class IndianOverseasBankParser : BankParser() {
     }
 
     override fun extractMerchant(message: String, sender: String): String? {
+        payeeDebit.find(message)?.let { match ->
+            val payee = cleanMerchantName(match.groupValues[1].trim())
+            if (isValidMerchantName(payee)) return payee
+        }
+        // The balance text names only this account ("Debited to SB-xxx1234").
+        if (ownAccount.containsMatchIn(message)) return null
+
         // UPI transaction with payer details
         // Pattern: "from SIDDHANT SIN-7737219900@su(UPI Ref"
         val upiPayerPattern = Regex(
@@ -123,6 +152,7 @@ class IndianOverseasBankParser : BankParser() {
     }
 
     override fun extractAccountLast4(message: String): String? {
+        ownAccount.find(message)?.let { return extractLast4Digits(it.groupValues[1]) }
         super.extractAccountLast4(message)?.let { return it }
         // Pattern: "Your a/c no. XXXXX92"
         val accountPattern = Regex(
@@ -137,6 +167,12 @@ class IndianOverseasBankParser : BankParser() {
     }
 
     override fun extractReference(message: String): String? {
+        // Payee text: ", ref 612345678901."
+        Regex("""\bref\s+(\d{12})\b""", RegexOption.IGNORE_CASE).find(message)?.let {
+            return it.groupValues[1]
+        }
+        truncatedUpiReference.find(message)?.let { return it.groupValues[1] }
+
         // Pattern: "(UPI Ref no 560699645381)"
         val upiRefPattern = Regex(
             """\(UPI\s+Ref\s+no\s+(\d+)\)""",
